@@ -34,10 +34,10 @@ jobs:
         run: bun install 
 
       - name: Run Biome Formatter Check
-        run: biome format
+        run: bunx @biomejs/biome format
 
       - name: Run Biome Linter
-        run: biome check 
+        run: bunx @biomejs/biome lint 
 
   build_application:
     name: Build Application
