@@ -1,4 +1,4 @@
-import { type StatusCodes } from "http-status-codes";
+import type { StatusCodes } from "http-status-codes";
 
 export class ApiError extends Error {
   public readonly statusCode: StatusCodes;
