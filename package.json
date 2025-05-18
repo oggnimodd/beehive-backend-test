@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "bun run src/main.ts --watch",
     "prepare": "husky",
-    "build": "tsc && bun run swagger:generate && bun run scripts/build.ts",
+    "build": "bun run swagger:generate && tsc && bun run scripts/build.ts",
     "start": "node dist/main.js",
     "pre-commit": "bunx lint-staged",
     "format": "biome format --write",
