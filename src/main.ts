@@ -81,7 +81,6 @@ app.get("/health", (_req: Request, res: Response) => {
   res.status(StatusCodes.OK).json({
     status: "UP",
     timestamp: new Date().toISOString(),
-    uptimeInSeconds: Math.floor(process.uptime()),
   });
 });
 
