@@ -1,0 +1,29 @@
+{
+  "name": "beehive-backend-test",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "prepare": "husky",
+    "pre-commit": "bunx lint-staged",
+    "format": "biome format --write",
+    "lint": "biome lint --write"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.0.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@biomejs/biome": "^1.9.4"
+  },
+  "lint-staged": {
+    "**/*.{js,ts,jsx,tsx,json}": [
+      "biome check --write .",
+      "biome format --write ."
+    ]
+  }
+}
