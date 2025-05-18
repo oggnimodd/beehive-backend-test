@@ -5,6 +5,8 @@ export const ErrorMessages = {
   RESOURCE_NOT_FOUND: (resource = "Resource") => `${resource} not found.`,
   INVALID_OBJECT_ID:
     "Invalid Object ID format. Please provide a valid 24-character hex string.",
+  CONFLICT_ERROR:
+    "The request could not be completed due to a conflict with the current state of the resource",
 
   USER_NOT_FOUND: "User not found.",
   INVALID_CREDENTIALS: "Invalid email or password. Please try again.",
