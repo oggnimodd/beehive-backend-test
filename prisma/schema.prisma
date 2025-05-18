@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  favoriteBooks   Book[]   @relation("UserFavoriteBooks", fields: [favoriteBookIds], references: [id])
+  favoriteBookIds String[] @db.ObjectId
+
+  favoriteAuthors   Author[] @relation("UserFavoriteAuthors", fields: [favoriteAuthorIds], references: [id])
+  favoriteAuthorIds String[] @db.ObjectId
+
+  @@map("users")
+}
+
+model Author {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  bio       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  books         BookAuthor[]
+  favoritedBy   User[]       @relation("UserFavoriteAuthors", fields: [favoritedByIds], references: [id])
+  favoritedByIds String[]    @db.ObjectId
+
+
+  @@map("authors")
+}
+
+model Book {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  title         String
+  isbn          String?  @unique
+  publishedDate DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  authors       BookAuthor[]
+  favoritedBy   User[]       @relation("UserFavoriteBooks", fields: [favoritedByIds], references: [id])
+  favoritedByIds String[]    @db.ObjectId
+
+  @@map("books")
+}
+
+model BookAuthor {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+
+  bookId    String   @db.ObjectId
+  authorId  String   @db.ObjectId
+  assignedAt DateTime @default(now())
+
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  author    Author   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@unique([bookId, authorId])
+
+  @@map("book_authors")
+}

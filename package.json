@@ -7,7 +7,8 @@
     "prepare": "husky",
     "pre-commit": "bunx lint-staged",
     "format": "biome format --write",
-    "lint": "biome lint --write"
+    "lint": "biome lint --write",
+    "db:generate": "prisma generate"
   },
   "devDependencies": {
     "@types/bun": "latest",
@@ -18,7 +19,9 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@biomejs/biome": "^1.9.4"
+    "@biomejs/biome": "^1.9.4",
+    "@prisma/client": "^6.8.2",
+    "prisma": "^6.8.2"
   },
   "lint-staged": {
     "**/*.{js,ts,jsx,tsx,json}": [
