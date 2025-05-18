@@ -3,8 +3,6 @@ import authRoutes from "./auth.routes";
 
 const mainRouter = Router();
 
-const API_PREFIX = "/api/v1";
-
-mainRouter.use(`${API_PREFIX}/auth`, authRoutes);
+mainRouter.use("/api/v1/auth", authRoutes);
 
 export default mainRouter;

@@ -6,12 +6,14 @@ import { StatusCodes } from "http-status-codes";
 import pinoHttp from "pino-http";
 import pino from "pino";
 import { randomUUID } from "node:crypto";
-
+import { apiReference } from "@scalar/express-api-reference";
 import { config } from "@/config";
 import appLogger from "@/utils/logger";
 import { errorHandler } from "@/middlewares/error.middleware";
 import mainRouter from "@/routes";
 import { prisma } from "@/db/client";
+
+import swaggerOutput from "./swagger_output.json";
 
 const app = express();
 
@@ -70,10 +72,67 @@ app.use(
 );
 
 app.use(cors());
-app.use(helmet());
+
+app.use(
+  helmet({
+    crossOriginEmbedderPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+          "https://cdn.jsdelivr.net",
+        ],
+        styleSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://cdn.jsdelivr.net",
+          "https://fonts.scalar.com",
+          "https://fonts.googleapis.com",
+        ],
+        fontSrc: [
+          "'self'",
+          "https://fonts.scalar.com",
+          "https://fonts.gstatic.com",
+          "data:",
+        ],
+        imgSrc: ["'self'", "data:", "https://cdn.jsdelivr.net"],
+        connectSrc: ["'self'", "https://cdn.jsdelivr.net"],
+        workerSrc: ["'self'", "blob:"],
+      },
+    },
+  })
+);
 
 app.use(express.json({ limit: "25kb" }));
 app.use(express.urlencoded({ extended: true, limit: "25kb" }));
+
+app.use("/swagger-output", (_req, res) => {
+  res.send(swaggerOutput);
+});
+
+app.use(
+  "/reference",
+  apiReference({
+    theme: "purple",
+    url: "/swagger-output",
+    layout: "modern",
+    showSidebar: true,
+    defaultHttpClient: {
+      targetKey: "js",
+      clientKey: "fetch",
+    },
+    authentication: {
+      preferredSecurityScheme: "bearerAuth",
+    },
+    metaData: {
+      title: "Beehive Backend Test",
+      description: "Beehive Backend Test",
+    },
+  })
+);
 
 app.use(mainRouter);
 

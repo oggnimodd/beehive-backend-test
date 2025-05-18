@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun run src/main.ts",
+    "dev": "bun run src/main.ts --watch",
     "prepare": "husky",
     "pre-commit": "bunx lint-staged",
     "format": "biome format --write",
@@ -15,7 +15,8 @@
     "test:unit": "vitest run --dir src/tests/unit",
     "test:integration": "vitest run --dir src/tests/integration",
     "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "swagger:generate": "bun run src/swagger.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
@@ -37,6 +38,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.8.2",
+    "@scalar/express-api-reference": "^0.7.6",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "express": "^5.1.0",
@@ -47,6 +49,7 @@
     "pino-http": "^10.4.0",
     "pino-pretty": "^13.0.0",
     "prisma": "^6.8.2",
+    "swagger-autogen": "^2.23.7",
     "zod": "^3.24.4"
   },
   "lint-staged": {
