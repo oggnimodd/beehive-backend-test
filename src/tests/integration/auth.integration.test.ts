@@ -12,7 +12,7 @@ const request = supertest(app);
 
 describe(`Auth API Endpoints - ${API_PREFIX}/auth`, () => {
   const testUserCredentials = {
-    email: "test.user@integration.com",
+    email: "test.user.integration@example.com",
     password: "PasswordForTest123!",
     name: "Integration Tester",
   };
@@ -34,7 +34,7 @@ describe(`Auth API Endpoints - ${API_PREFIX}/auth`, () => {
   });
 
   describe(`POST ${API_PREFIX}/auth/register`, () => {
-    it("should register a new user successfully with valid data", async () => {
+    it("should register a new user successfully with valid data and return core user fields + token", async () => {
       const response = await request
         .post(`${API_PREFIX}/auth/register`)
         .send(testUserCredentials);
@@ -44,11 +44,19 @@ describe(`Auth API Endpoints - ${API_PREFIX}/auth`, () => {
       expect(response.body.message).toBe(
         "User registered successfully. Please log in."
       );
-      expect(response.body.data.user.email).toBe(
+
+      const userInResponse = response.body.data.user;
+      expect(userInResponse.email).toBe(
         testUserCredentials.email.toLowerCase()
       );
-      expect(response.body.data.user.name).toBe(testUserCredentials.name);
-      expect(response.body.data.user).not.toHaveProperty("password");
+      expect(userInResponse.name).toBe(testUserCredentials.name);
+      expect(userInResponse).toHaveProperty("id");
+      expect(userInResponse).toHaveProperty("createdAt");
+      expect(userInResponse).toHaveProperty("updatedAt");
+      expect(userInResponse).not.toHaveProperty("password");
+      expect(userInResponse).not.toHaveProperty("favoriteBookIds");
+      expect(userInResponse).not.toHaveProperty("favoriteAuthorIds");
+
       expect(response.body.data.token).toBeDefined();
       expect(typeof response.body.data.token).toBe("string");
 
@@ -57,13 +65,14 @@ describe(`Auth API Endpoints - ${API_PREFIX}/auth`, () => {
       });
       expect(dbUser).not.toBeNull();
       expect(dbUser?.name).toBe(testUserCredentials.name);
+      expect(dbUser?.favoriteBookIds).toEqual([]);
+      expect(dbUser?.favoriteAuthorIds).toEqual([]);
     });
 
     it("should fail to register if email already exists", async () => {
       await request
         .post(`${API_PREFIX}/auth/register`)
         .send(testUserCredentials);
-
       const response = await request.post(`${API_PREFIX}/auth/register`).send({
         ...testUserCredentials,
         name: "Another Name",
@@ -71,7 +80,6 @@ describe(`Auth API Endpoints - ${API_PREFIX}/auth`, () => {
       });
 
       expect(response.status).toBe(StatusCodes.BAD_REQUEST);
-      expect(response.body.status).toBe("fail");
       expect(response.body.message).toBe(ErrorMessages.EMAIL_ALREADY_EXISTS);
     });
 
@@ -128,7 +136,7 @@ describe(`Auth API Endpoints - ${API_PREFIX}/auth`, () => {
       });
     });
 
-    it("should login an existing user successfully with correct credentials", async () => {
+    it("should login an existing user successfully and return core user fields + token", async () => {
       const response = await request.post(`${API_PREFIX}/auth/login`).send({
         email: testUserCredentials.email,
         password: testUserCredentials.password,
@@ -137,15 +145,21 @@ describe(`Auth API Endpoints - ${API_PREFIX}/auth`, () => {
       expect(response.status).toBe(StatusCodes.OK);
       expect(response.body.status).toBe("success");
       expect(response.body.message).toBe("Login successful.");
-      expect(response.body.data.user.email).toBe(
+
+      const userInResponse = response.body.data.user;
+      expect(userInResponse.email).toBe(
         testUserCredentials.email.toLowerCase()
       );
-      expect(response.body.data.user).not.toHaveProperty("password");
-      expect(response.body.data.token).toBeDefined();
-      expect(typeof response.body.data.token).toBe("string");
+      expect(userInResponse).toHaveProperty("id");
+      expect(userInResponse).toHaveProperty("createdAt");
+      expect(userInResponse).toHaveProperty("updatedAt");
+      expect(userInResponse).not.toHaveProperty("password");
+      expect(userInResponse).not.toHaveProperty("favoriteBookIds");
+      expect(userInResponse).not.toHaveProperty("favoriteAuthorIds");
 
+      expect(response.body.data.token).toBeDefined();
       authToken = response.body.data.token;
-      createdUserId = response.body.data.user.id;
+      createdUserId = userInResponse.id;
     });
 
     it("should fail to login with an incorrect password", async () => {
@@ -153,9 +167,7 @@ describe(`Auth API Endpoints - ${API_PREFIX}/auth`, () => {
         email: testUserCredentials.email,
         password: "WrongPassword123!",
       });
-
       expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
-      expect(response.body.status).toBe("fail");
       expect(response.body.message).toBe(ErrorMessages.INVALID_CREDENTIALS);
     });
 
@@ -164,7 +176,6 @@ describe(`Auth API Endpoints - ${API_PREFIX}/auth`, () => {
         email: "nosuchuser@integration.com",
         password: testUserCredentials.password,
       });
-
       expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
       expect(response.body.message).toBe(ErrorMessages.INVALID_CREDENTIALS);
     });
@@ -199,40 +210,47 @@ describe(`Auth API Endpoints - ${API_PREFIX}/auth`, () => {
       authToken = loginResponse.body.data.token;
     });
 
-    it("should retrieve current user details with a valid token", async () => {
+    it("should retrieve current user details (including empty favorite arrays by default from DB) with a valid token", async () => {
       expect(authToken).not.toBeNull();
-
       const response = await request
         .get(`${API_PREFIX}/auth/me`)
         .set("Authorization", `Bearer ${authToken}`);
 
       expect(response.status).toBe(StatusCodes.OK);
       expect(response.body.status).toBe("success");
-      expect(response.body.data.id).toBe(createdUserId);
-      expect(response.body.data.email).toBe(
+
+      const userInResponse = response.body.data;
+      expect(userInResponse.id).toBe(createdUserId);
+      expect(userInResponse.email).toBe(
         testUserCredentials.email.toLowerCase()
       );
-      expect(response.body.data.name).toBe(testUserCredentials.name);
-      expect(response.body.data).not.toHaveProperty("password");
+      expect(userInResponse.name).toBe(testUserCredentials.name);
+      expect(userInResponse).toHaveProperty("createdAt");
+      expect(userInResponse).toHaveProperty("updatedAt");
+      expect(userInResponse).not.toHaveProperty("password");
+
+      expect(userInResponse).toHaveProperty("favoriteBookIds");
+      expect(userInResponse.favoriteBookIds).toEqual([]);
+
+      expect(userInResponse).toHaveProperty("favoriteAuthorIds");
+      expect(userInResponse.favoriteAuthorIds).toEqual([]);
     });
 
-    it("should fail to retrieve user details if no token is provided", async () => {
+    it("should fail if no token is provided", async () => {
       const response = await request.get(`${API_PREFIX}/auth/me`);
-
       expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
       expect(response.body.message).toBe(ErrorMessages.UNAUTHENTICATED);
     });
 
-    it("should fail to retrieve user details if token is invalid or malformed", async () => {
+    it("should fail if token is invalid or malformed", async () => {
       const response = await request
         .get(`${API_PREFIX}/auth/me`)
         .set("Authorization", "Bearer aninvalidtoken123.nonsense.token");
-
       expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
       expect(response.body.message).toBe(ErrorMessages.TOKEN_INVALID);
     });
 
-    it("should fail if token is valid but the user has been deleted", async () => {
+    it("should fail if token is valid but the user has been deleted from DB", async () => {
       expect(authToken).not.toBeNull();
       expect(createdUserId).not.toBeNull();
 

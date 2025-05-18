@@ -12,6 +12,7 @@ import {
   UnauthorizedError,
   NotFoundError,
 } from "@/errors/error-types";
+import { generateSimpleUserObject } from "@/utils/user";
 
 class AuthService {
   async registerUser(userData: RegisterUserDto) {
@@ -30,7 +31,7 @@ class AuthService {
 
     const token = signToken(tokenPayload);
 
-    return { user: omitPasswordFromResult(newUser), token };
+    return { user: generateSimpleUserObject(newUser), token };
   }
 
   async loginUser(loginData: LoginUserDto) {
@@ -50,7 +51,7 @@ class AuthService {
     const tokenPayload: JwtPayload = { userId: user.id, email: user.email };
     const token = signToken(tokenPayload);
 
-    return { user: omitPasswordFromResult(user), token };
+    return { user: generateSimpleUserObject(user), token };
   }
 
   async getMe(userId: string) {

@@ -9,7 +9,8 @@
       "recommended": true,
       "style": {
         "useNumberNamespace": "off",
-        "noUselessElse": "off"
+        "noUselessElse": "off",
+        "noNonNullAssertion": "off"
       },
       "suspicious": {
         "noConsoleLog": "off",

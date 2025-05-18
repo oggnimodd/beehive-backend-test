@@ -50,7 +50,8 @@
     "pino-pretty": "^13.0.0",
     "prisma": "^6.8.2",
     "swagger-autogen": "^2.23.7",
-    "zod": "^3.24.4"
+    "zod": "^3.24.4",
+    "zod-openapi": "^4.2.4"
   },
   "lint-staged": {
     "**/*.{js,ts,jsx,tsx,json}": [

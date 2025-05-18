@@ -131,10 +131,6 @@ export const errorHandler = (
     responsePayload.errors = detailedErrors;
   }
 
-  if (config.nodeEnv === "development") {
-    responsePayload.stack = err.stack;
-  }
-
   if (!res.headersSent) {
     res.status(statusCode).json(responsePayload);
   } else {
