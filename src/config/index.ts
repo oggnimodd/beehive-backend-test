@@ -29,4 +29,8 @@ export const config = {
   },
 
   bcryptSaltRounds: parseInt(getConfigValue("BCRYPT_SALT_ROUNDS", "10"), 10),
+
+  logLevel:
+    process.env.LOG_LEVEL ||
+    (process.env.NODE_ENV === "production" ? "info" : "debug"),
 } as const;

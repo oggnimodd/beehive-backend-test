@@ -1,26 +1,32 @@
 import pino from "pino";
+import { transport } from "pino";
 import { config } from "@/config";
 
-const logger = pino({
-  level: config.nodeEnv === "production" ? "info" : "debug",
-  timestamp: pino.stdTimeFunctions.isoTime,
-  formatters: {
-    level: (label) => {
-      return { level: label.toUpperCase() };
+const isProd = config.nodeEnv === "production";
+const level = config.logLevel || (isProd ? "info" : "debug");
+
+const prettyTransport = transport({
+  target: "pino-pretty",
+  options: {
+    colorize: true,
+    translateTime: "yyyy-mm-dd HH:MM:ss.l",
+    ignore: "pid,hostname",
+    singleLine: false,
+  },
+});
+
+const logger = pino(
+  {
+    level,
+    timestamp: pino.stdTimeFunctions.isoTime,
+    base: undefined,
+    formatters: {
+      level(label) {
+        return { level: label.toUpperCase() };
+      },
     },
   },
-  transport:
-    config.nodeEnv !== "production"
-      ? {
-          target: "pino-pretty",
-          options: {
-            colorize: true,
-            translateTime: "SYS:standard",
-            ignore: "pid,hostname",
-            messageFormat: "{req.id} - {msg}",
-          },
-        }
-      : undefined,
-});
+  isProd ? process.stdout : prettyTransport
+);
 
 export default logger;

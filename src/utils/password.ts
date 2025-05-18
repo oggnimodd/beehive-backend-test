@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { config } from "@/config";
+import type { User } from "@prisma/client";
 
 export const hashPassword = async (password: string) => {
   // Defensive check
@@ -18,4 +19,10 @@ export const comparePassword = async (
     return false;
   }
   return bcrypt.compare(password, hashedPassword);
+};
+
+// We dont want to return the password in the response
+export const omitPasswordFromResult = (user: User): Omit<User, "password"> => {
+  const { password, ...userWithoutPassword } = user;
+  return userWithoutPassword;
 };

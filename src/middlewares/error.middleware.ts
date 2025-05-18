@@ -1,4 +1,4 @@
-import type { Request, Response } from "express";
+import type { Request, Response, NextFunction } from "express";
 import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import { Prisma } from "@prisma/client";
 import { ZodError } from "zod";
@@ -14,7 +14,12 @@ export type StatusType = "fail" | "error";
 const getResponseStatusType = (statusCode: number): StatusType =>
   statusCode >= 400 && statusCode < 500 ? "fail" : "error";
 
-export const errorHandler = (err: Error, req: Request, res: Response) => {
+export const errorHandler = (
+  err: Error,
+  req: Request,
+  res: Response,
+  _next: NextFunction
+) => {
   const requestId = (req as any).id || "unknown-request";
 
   // Log error details
