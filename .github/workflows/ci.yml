@@ -103,5 +103,8 @@ jobs:
       - name: Generate Prisma Client
         run: bun run db:generate
 
+      - name: Generate Swagger Documentation
+        run: bun run swagger:generate
+
       - name: Run Integration Tests
         run: bun run test:integration
