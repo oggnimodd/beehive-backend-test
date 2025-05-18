@@ -68,7 +68,7 @@ describe("AuthService", () => {
         id: "generated-user-id-register",
         email: mockRegisterDto.email,
         password: actualHashedPassword,
-        name: mockRegisterDto.name,
+        name: mockRegisterDto.name || null,
         createdAt: new Date(),
         updatedAt: new Date(),
         favoriteAuthorIds: [],

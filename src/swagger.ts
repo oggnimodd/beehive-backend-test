@@ -1,6 +1,6 @@
 import "zod-openapi/extend";
 import { z } from "zod";
-import { createDocument } from "zod-openapi";
+import { createDocument, type ZodOpenApiObject } from "zod-openapi";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -15,7 +15,6 @@ import {
 import { ErrorResponseSchema } from "@/dto/shared.dto";
 
 const documentBase = {
-  openapi: "3.0.3",
   info: {
     version: "v1.0.0",
     title: "Beehive Backend API",
@@ -39,7 +38,7 @@ const documentBase = {
         bearerFormat: "JWT",
         description: 'Enter JWT Bearer token: "Bearer {token}"',
       },
-    },
+    } as const,
   },
   tags: [
     {
@@ -48,11 +47,11 @@ const documentBase = {
         "Endpoints for User Authentication (Registration, Login) and Profile Management",
     },
   ],
-} as const;
+};
 
 const document = createDocument({
+  openapi: "3.0.3",
   ...documentBase,
-
   paths: {
     "/auth/register": {
       post: {
@@ -170,7 +169,6 @@ const document = createDocument({
     },
   },
 });
-
 const outputFile = path.resolve(process.cwd(), "./src/swagger_output.json");
 
 async function generateAndWriteSwaggerFile() {
