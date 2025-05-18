@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
+    "dotenv": "^16.5.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.0.0"
   },
