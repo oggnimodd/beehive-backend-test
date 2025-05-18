@@ -1,16 +1,16 @@
 import "zod-openapi/extend";
-import { z } from "zod";
-import { createDocument, type ZodOpenApiObject } from "zod-openapi";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
+import { z } from "zod";
+import { type ZodOpenApiObject, createDocument } from "zod-openapi";
 
 import { config } from "@/config";
 
 import {
-  UserRegistrationInputSchema,
-  LoginUserInputSchema,
   AuthResponseDataSchema,
+  LoginUserInputSchema,
   UserOutputSchema,
+  UserRegistrationInputSchema,
 } from "@/dto/auth.dto";
 import { ErrorResponseSchema } from "@/dto/shared.dto";
 

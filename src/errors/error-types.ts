@@ -1,6 +1,6 @@
+import { ErrorMessages } from "@/constants";
 import { StatusCodes } from "http-status-codes";
 import { ApiError } from "./api-error";
-import { ErrorMessages } from "@/constants";
 
 export class NotFoundError extends ApiError {
   constructor(message: string = ErrorMessages.RESOURCE_NOT_FOUND("Resource")) {

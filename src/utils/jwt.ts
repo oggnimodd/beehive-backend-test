@@ -1,6 +1,6 @@
-import jwt, { type SignOptions } from "jsonwebtoken";
 import { config } from "@/config";
 import logger from "@/utils/logger";
+import jwt, { type SignOptions } from "jsonwebtoken";
 
 export interface JwtPayload {
   userId: string;

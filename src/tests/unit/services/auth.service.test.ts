@@ -1,16 +1,16 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import AuthService from "@/services/auth.service";
+import { config } from "@/config";
+import { ErrorMessages } from "@/constants";
 import UserDao from "@/dao/user.dao";
-import { hashPassword } from "@/utils/password";
+import type { LoginUserDto, RegisterUserDto } from "@/dto/auth.dto";
 import {
   BadRequestError,
-  UnauthorizedError,
   NotFoundError,
+  UnauthorizedError,
 } from "@/errors/error-types";
-import { ErrorMessages } from "@/constants";
-import type { RegisterUserDto, LoginUserDto } from "@/dto/auth.dto";
+import AuthService from "@/services/auth.service";
+import { hashPassword } from "@/utils/password";
 import type { User } from "@prisma/client";
-import { config } from "@/config";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/dao/user.dao");
 

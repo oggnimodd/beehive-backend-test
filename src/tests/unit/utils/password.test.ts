@@ -1,12 +1,12 @@
-import { describe, it, expect } from "vitest";
-import bcrypt from "bcryptjs";
+import { config } from "@/config";
 import {
-  hashPassword,
   comparePassword,
+  hashPassword,
   omitPasswordFromResult,
 } from "@/utils/password";
-import { config } from "@/config";
 import type { User } from "@prisma/client";
+import bcrypt from "bcryptjs";
+import { describe, expect, it } from "vitest";
 
 describe("Password Utilities", () => {
   const plainPassword = "StrongPassword123!";

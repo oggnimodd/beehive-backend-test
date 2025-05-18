@@ -1,12 +1,12 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
-import supertest from "supertest";
-import app from "@/main";
-import { prisma } from "@/db/client";
-import { clearDatabase, disconnectPrisma } from "./helpers/db.helpers";
-import { StatusCodes } from "http-status-codes";
 import { ErrorMessages } from "@/constants";
+import { prisma } from "@/db/client";
+import app from "@/main";
 import { hashPassword } from "@/utils/password";
+import { StatusCodes } from "http-status-codes";
+import supertest from "supertest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { API_PREFIX } from "./helpers/constants.helper";
+import { clearDatabase, disconnectPrisma } from "./helpers/db.helpers";
 
 const request = supertest(app);
 

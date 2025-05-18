@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
-import * as esbuild from "esbuild";
-import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import * as esbuild from "esbuild";
 
 const projectRoot = process.cwd();
 const distDir = path.resolve(projectRoot, "dist");

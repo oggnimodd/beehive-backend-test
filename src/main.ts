@@ -1,19 +1,19 @@
-import express from "express";
-import type { Request, Response, NextFunction } from "express";
-import cors from "cors";
-import helmet from "helmet";
-import { StatusCodes } from "http-status-codes";
-import pinoHttp from "pino-http";
-import pino from "pino";
 import { randomUUID } from "node:crypto";
-import { apiReference } from "@scalar/express-api-reference";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { config } from "@/config";
-import appLogger from "@/utils/logger";
+import { prisma } from "@/db/client";
 import { errorHandler } from "@/middlewares/error.middleware";
 import mainRouter from "@/routes";
-import { prisma } from "@/db/client";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
+import appLogger from "@/utils/logger";
+import { apiReference } from "@scalar/express-api-reference";
+import cors from "cors";
+import express from "express";
+import type { NextFunction, Request, Response } from "express";
+import helmet from "helmet";
+import { StatusCodes } from "http-status-codes";
+import pino from "pino";
+import pinoHttp from "pino-http";
 
 import swaggerOutput from "./swagger_output.json";
 

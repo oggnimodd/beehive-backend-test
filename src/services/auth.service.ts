@@ -1,17 +1,17 @@
-import UserDao from "@/dao/user.dao";
-import type { RegisterUserDto, LoginUserDto } from "@/dto/auth.dto";
-import {
-  hashPassword,
-  comparePassword,
-  omitPasswordFromResult,
-} from "@/utils/password";
-import { signToken, type JwtPayload } from "@/utils/jwt";
 import { ErrorMessages } from "@/constants";
+import UserDao from "@/dao/user.dao";
+import type { LoginUserDto, RegisterUserDto } from "@/dto/auth.dto";
 import {
   BadRequestError,
-  UnauthorizedError,
   NotFoundError,
+  UnauthorizedError,
 } from "@/errors/error-types";
+import { type JwtPayload, signToken } from "@/utils/jwt";
+import {
+  comparePassword,
+  hashPassword,
+  omitPasswordFromResult,
+} from "@/utils/password";
 import { generateSimpleUserObject } from "@/utils/user";
 
 class AuthService {

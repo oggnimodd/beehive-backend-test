@@ -1,6 +1,6 @@
-import bcrypt from "bcryptjs";
 import { config } from "@/config";
 import type { User } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 export const hashPassword = async (password: string) => {
   // Defensive check

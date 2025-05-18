@@ -1,6 +1,6 @@
-import type { Request, Response, NextFunction } from "express";
+import type { LoginUserDto, RegisterUserDto } from "@/dto/auth.dto";
 import AuthService from "@/services/auth.service";
-import type { RegisterUserDto, LoginUserDto } from "@/dto/auth.dto";
+import type { NextFunction, Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 
 class AuthController {

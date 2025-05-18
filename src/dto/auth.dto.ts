@@ -1,6 +1,6 @@
 import "zod-openapi/extend";
-import { z } from "zod";
 import { ErrorMessages } from "@/constants";
+import { z } from "zod";
 import { ZodObjectId } from "./shared.dto";
 
 const MIN_PASSWORD_LENGTH = 8;

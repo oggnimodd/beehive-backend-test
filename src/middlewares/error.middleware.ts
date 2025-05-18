@@ -1,12 +1,12 @@
-import type { Request, Response, NextFunction } from "express";
-import { StatusCodes, ReasonPhrases } from "http-status-codes";
 import { Prisma } from "@prisma/client";
+import type { NextFunction, Request, Response } from "express";
+import { ReasonPhrases, StatusCodes } from "http-status-codes";
 import { ZodError } from "zod";
 
-import { ApiError } from "@/errors/api-error";
-import logger from "@/utils/logger";
 import { config } from "@/config";
 import { ErrorMessages } from "@/constants";
+import { ApiError } from "@/errors/api-error";
+import logger from "@/utils/logger";
 
 export type StatusType = "fail" | "error";
 

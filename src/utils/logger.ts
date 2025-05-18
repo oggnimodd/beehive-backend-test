@@ -1,6 +1,6 @@
+import { config } from "@/config";
 import pino from "pino";
 import { transport } from "pino";
-import { config } from "@/config";
 
 const isProd = config.nodeEnv === "production";
 const level = config.logLevel || (isProd ? "info" : "debug");
