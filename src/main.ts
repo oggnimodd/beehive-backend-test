@@ -12,6 +12,8 @@ import appLogger from "@/utils/logger";
 import { errorHandler } from "@/middlewares/error.middleware";
 import mainRouter from "@/routes";
 import { prisma } from "@/db/client";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 
 import swaggerOutput from "./swagger_output.json";
 
@@ -225,7 +227,13 @@ const startServer = async () => {
   }
 };
 
-if (require.main === module) {
+const currentScriptPath = fileURLToPath(import.meta.url);
+const mainScriptPath = process.argv[1];
+
+if (
+  mainScriptPath &&
+  path.resolve(currentScriptPath) === path.resolve(mainScriptPath)
+) {
   startServer();
 }
 
