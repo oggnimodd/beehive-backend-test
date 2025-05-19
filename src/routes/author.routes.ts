@@ -1,5 +1,6 @@
 import { Router } from "express";
 import AuthorController from "@/controllers/author.controller";
+import FavoriteController from "@/controllers/favorite.controller";
 import { protect } from "@/middlewares/auth.middleware";
 import { validate } from "@/middlewares/validation.middleware";
 import {
@@ -45,6 +46,20 @@ router.delete(
   protect,
   validate(IdParamSchema),
   AuthorController.deleteAuthor
+);
+
+router.post(
+  "/:id/favorite",
+  protect,
+  validate(IdParamSchema),
+  FavoriteController.addAuthorToFavorites
+);
+
+router.delete(
+  "/:id/favorite",
+  protect,
+  validate(IdParamSchema),
+  FavoriteController.removeAuthorFromFavorites
 );
 
 export default router;

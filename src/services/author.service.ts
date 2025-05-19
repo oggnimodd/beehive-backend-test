@@ -4,7 +4,11 @@ import {
   ErrorMessages,
 } from "@/constants";
 import AuthorDao from "@/dao/author.dao";
-import type { CreateAuthorDto, UpdateAuthorDto } from "@/dto/author.dto";
+import type {
+  CreateAuthorDto,
+  UpdateAuthorDto,
+  AuthorOutput,
+} from "@/dto/author.dto";
 import {
   ForbiddenError,
   NotFoundError,
@@ -18,20 +22,23 @@ class AuthorService {
     return AuthorDao.createAuthor(authorData, userId);
   }
 
-  async getAuthorById(authorId: string, requestingUserId?: string) {
-    const author = await AuthorDao.findAuthorById(authorId);
+  async getAuthorById(
+    authorId: string,
+    requestingUserId?: string
+  ): Promise<AuthorOutput> {
+    const author = await AuthorDao.findAuthorById(authorId, requestingUserId);
 
     if (!author) {
       throw new NotFoundError(ErrorMessages.AUTHOR_NOT_FOUND);
     }
 
-    if (requestingUserId && author.createdById !== requestingUserId) {
-      throw new ForbiddenError(ErrorMessages.UNAUTHORIZED_ACTION);
-    }
-    return author;
+    return author as AuthorOutput;
   }
 
-  async getAllAuthors(query: PaginationQueryDto, requestingUserId?: string) {
+  async getAllAuthors(
+    query: PaginationQueryDto,
+    requestingUserId?: string
+  ): Promise<{ data: AuthorOutput[]; meta: any }> {
     const page = Number(query.page ?? DEFAULT_PAGE_NUMBER);
     const limit = Number(query.limit ?? DEFAULT_PAGE_LIMIT);
     const sortBy = query.sortBy;
@@ -42,13 +49,14 @@ class AuthorService {
       limit,
       sortBy,
       search,
+      requestingUserId,
       requestingUserId
     );
 
     const totalPages = limit > 0 ? Math.ceil(totalItems / limit) : 0;
     const itemCount = authors.length;
     return {
-      data: authors,
+      data: authors as AuthorOutput[],
       meta: {
         totalItems,
         itemCount,

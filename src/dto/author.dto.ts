@@ -82,10 +82,16 @@ export const AuthorOutputSchema = z
       type: "string",
       format: "date-time",
     }),
+    isFavorite: z.boolean().optional().openapi({
+      description:
+        "Indicates if the author is favorited by the currently authenticated user. Only present when the context provides this information.",
+      example: true,
+    }),
   })
   .openapi({
     ref: "AuthorOutput",
-    description: "Represents an author object as returned by the API.",
+    description:
+      "Represents an author object as returned by the API. May include 'isFavorite' status.",
   });
 
 export const CreateAuthorRequestSchema = z.object({

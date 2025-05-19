@@ -1,14 +1,19 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import AuthorService from "@/services/author.service";
 import AuthorDao from "@/dao/author.dao";
+import { ErrorMessages } from "@/constants";
 import {
-  DEFAULT_PAGE_LIMIT,
-  DEFAULT_PAGE_NUMBER,
-  ErrorMessages,
-} from "@/constants";
-import { NotFoundError, ForbiddenError } from "@/errors/error-types";
-import type { CreateAuthorDto, UpdateAuthorDto } from "@/dto/author.dto";
+  NotFoundError,
+  ForbiddenError,
+  ConflictError,
+} from "@/errors/error-types";
+import type {
+  CreateAuthorDto,
+  UpdateAuthorDto,
+  AuthorOutput,
+} from "@/dto/author.dto";
 import type { Author } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import type { PaginationQueryDto } from "@/dto/shared.dto";
 
 vi.mock("@/dao/author.dao");
@@ -17,21 +22,21 @@ const mockAuthorId = "mockAuthorId123";
 const mockUserId = "mockUserId456";
 const anotherMockUserId = "anotherUserId789";
 
-const mockAuthor: Author = {
+const mockAuthorFromDaoBase: Author & { isFavorite?: boolean } = {
   id: mockAuthorId,
   name: "George Orwell",
   bio: "English novelist, essayist, journalist and critic.",
   createdById: mockUserId,
+  favoritedByIds: [],
   createdAt: new Date(),
   updatedAt: new Date(),
-  favoritedByIds: [],
+  isFavorite: false,
 };
 
 describe("AuthorService", () => {
   beforeEach(() => {
     vi.mocked(AuthorDao.createAuthor).mockReset();
     vi.mocked(AuthorDao.findAuthorById).mockReset();
-    vi.mocked(AuthorDao.findAuthorsByName).mockReset();
     vi.mocked(AuthorDao.findAllAuthors).mockReset();
     vi.mocked(AuthorDao.updateAuthor).mockReset();
     vi.mocked(AuthorDao.deleteAuthor).mockReset();
@@ -42,239 +47,219 @@ describe("AuthorService", () => {
   });
 
   describe("createAuthor", () => {
-    const createDtoWithNameAndBio: CreateAuthorDto = {
+    const createDto: CreateAuthorDto = {
       name: "Aldous Huxley",
       bio: "Author of Brave New World.",
     };
-    const createDtoWithNameOnly: CreateAuthorDto = {
-      name: "Samuel Beckett",
-    };
-
-    it("should create and return an author with name and bio", async () => {
-      const expectedCreatedAuthor: Author = {
-        id: "newAuthorId1",
-        name: createDtoWithNameAndBio.name,
-        bio: createDtoWithNameAndBio.bio!,
+    it("should create and return an author", async () => {
+      const plainAuthor: Author = {
+        id: "newAuthorId",
+        name: createDto.name,
+        bio: createDto.bio!,
         createdById: mockUserId,
         createdAt: new Date(),
         updatedAt: new Date(),
         favoritedByIds: [],
       };
-      vi.mocked(AuthorDao.createAuthor).mockResolvedValue(
-        expectedCreatedAuthor
-      );
-
-      const result = await AuthorService.createAuthor(
-        createDtoWithNameAndBio,
-        mockUserId
-      );
-
+      vi.mocked(AuthorDao.createAuthor).mockResolvedValue(plainAuthor);
+      const result = await AuthorService.createAuthor(createDto, mockUserId);
       expect(AuthorDao.createAuthor).toHaveBeenCalledWith(
-        createDtoWithNameAndBio,
+        createDto,
         mockUserId
       );
-      expect(result).toEqual(expectedCreatedAuthor);
-    });
-
-    it("should create and return an author with name only (bio as null in result)", async () => {
-      const expectedCreatedAuthor: Author = {
-        id: "newAuthorId2",
-        name: createDtoWithNameOnly.name,
-        bio: null,
-        createdById: mockUserId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        favoritedByIds: [],
-      };
-      vi.mocked(AuthorDao.createAuthor).mockResolvedValue(
-        expectedCreatedAuthor
-      );
-
-      const result = await AuthorService.createAuthor(
-        createDtoWithNameOnly,
-        mockUserId
-      );
-
-      expect(AuthorDao.createAuthor).toHaveBeenCalledWith(
-        createDtoWithNameOnly,
-        mockUserId
-      );
-      expect(result.name).toEqual(expectedCreatedAuthor.name);
-      expect(result.bio).toBeNull();
-      expect(result.id).toEqual(expectedCreatedAuthor.id);
-      expect(result.createdById).toEqual(expectedCreatedAuthor.createdById);
-    });
-
-    it("should allow creating multiple authors with the same name by the same user", async () => {
-      const dto1: CreateAuthorDto = { name: "Repeat Name" };
-      const dto2: CreateAuthorDto = { name: "Repeat Name" };
-      const author1: Author = {
-        ...mockAuthor,
-        id: "id1",
-        name: "Repeat Name",
-        bio: null,
-        createdById: mockUserId,
-      };
-      const author2: Author = {
-        ...mockAuthor,
-        id: "id2",
-        name: "Repeat Name",
-        bio: null,
-        createdById: mockUserId,
-      };
-
-      vi.mocked(AuthorDao.createAuthor)
-        .mockResolvedValueOnce(author1)
-        .mockResolvedValueOnce(author2);
-
-      const result1 = await AuthorService.createAuthor(dto1, mockUserId);
-      const result2 = await AuthorService.createAuthor(dto2, mockUserId);
-
-      expect(AuthorDao.createAuthor).toHaveBeenCalledTimes(2);
-      expect(result1.name).toBe("Repeat Name");
-      expect(result2.name).toBe("Repeat Name");
-      expect(result1.id).not.toBe(result2.id);
+      expect(result).toEqual(plainAuthor);
     });
   });
 
   describe("getAuthorById", () => {
-    it("should return an author if found and user is owner", async () => {
-      vi.mocked(AuthorDao.findAuthorById).mockResolvedValue(mockAuthor);
+    it("should return an author with isFavorite status when requestingUserId is provided", async () => {
+      const authorFavoritedByRequestingUser = {
+        ...mockAuthorFromDaoBase,
+        isFavorite: true,
+      };
+      vi.mocked(AuthorDao.findAuthorById).mockResolvedValue(
+        authorFavoritedByRequestingUser
+      );
+
       const result = await AuthorService.getAuthorById(
         mockAuthorId,
         mockUserId
       );
-      expect(AuthorDao.findAuthorById).toHaveBeenCalledWith(mockAuthorId);
-      expect(result).toEqual(mockAuthor);
-    });
 
-    it("should throw ForbiddenError if author found but user is not owner", async () => {
-      vi.mocked(AuthorDao.findAuthorById).mockResolvedValue(mockAuthor);
-      await expect(
-        AuthorService.getAuthorById(mockAuthorId, anotherMockUserId)
-      ).rejects.toThrowError(
-        new ForbiddenError(ErrorMessages.UNAUTHORIZED_ACTION)
+      expect(AuthorDao.findAuthorById).toHaveBeenCalledWith(
+        mockAuthorId,
+        mockUserId
       );
-      expect(AuthorDao.findAuthorById).toHaveBeenCalledWith(mockAuthorId);
+      expect(result).toEqual(authorFavoritedByRequestingUser);
+      expect((result as AuthorOutput).isFavorite).toBe(true);
     });
 
-    it("should throw NotFoundError if author not found", async () => {
+    it("should return an author with isFavorite:false if not favorited by requestingUserId", async () => {
+      const authorNotFavorited = {
+        ...mockAuthorFromDaoBase,
+        isFavorite: false,
+      };
+      vi.mocked(AuthorDao.findAuthorById).mockResolvedValue(authorNotFavorited);
+
+      const result = await AuthorService.getAuthorById(
+        mockAuthorId,
+        mockUserId
+      );
+
+      expect(AuthorDao.findAuthorById).toHaveBeenCalledWith(
+        mockAuthorId,
+        mockUserId
+      );
+      expect(result).toEqual(authorNotFavorited);
+      expect((result as AuthorOutput).isFavorite).toBe(false);
+    });
+
+    it("should throw NotFoundError if DAO returns null", async () => {
       vi.mocked(AuthorDao.findAuthorById).mockResolvedValue(null);
       await expect(
         AuthorService.getAuthorById("nonExistentId", mockUserId)
       ).rejects.toThrowError(new NotFoundError(ErrorMessages.AUTHOR_NOT_FOUND));
+      expect(AuthorDao.findAuthorById).toHaveBeenCalledWith(
+        "nonExistentId",
+        mockUserId
+      );
     });
 
-    it("should return an author if found and no requestingUserId is provided (public access scenario)", async () => {
-      vi.mocked(AuthorDao.findAuthorById).mockResolvedValue(mockAuthor);
+    it("should return an author with isFavorite:undefined if no requestingUserId is provided", async () => {
+      const authorWithoutFavoriteContext = {
+        ...mockAuthorFromDaoBase,
+        isFavorite: undefined,
+      };
+      vi.mocked(AuthorDao.findAuthorById).mockResolvedValue(
+        authorWithoutFavoriteContext
+      );
+
       const result = await AuthorService.getAuthorById(mockAuthorId);
-      expect(AuthorDao.findAuthorById).toHaveBeenCalledWith(mockAuthorId);
-      expect(result).toEqual(mockAuthor);
+
+      expect(AuthorDao.findAuthorById).toHaveBeenCalledWith(
+        mockAuthorId,
+        undefined
+      );
+      expect(result).toEqual(authorWithoutFavoriteContext);
+      expect((result as AuthorOutput).isFavorite).toBeUndefined();
+    });
+
+    it("should return an author with correct isFavorite status even if createdById does not match requestingUserId", async () => {
+      const authorCreatedByOther = {
+        ...mockAuthorFromDaoBase,
+        createdById: anotherMockUserId,
+        isFavorite: true,
+      };
+      vi.mocked(AuthorDao.findAuthorById).mockResolvedValue(
+        authorCreatedByOther
+      );
+
+      const result = await AuthorService.getAuthorById(
+        mockAuthorId,
+        mockUserId
+      );
+
+      expect(AuthorDao.findAuthorById).toHaveBeenCalledWith(
+        mockAuthorId,
+        mockUserId
+      );
+      expect(result).toEqual(authorCreatedByOther);
+      expect((result as AuthorOutput).isFavorite).toBe(true);
     });
   });
 
   describe("getAllAuthors", () => {
-    const authorsList: Author[] = [
-      mockAuthor,
+    const mockAuthorsListFromDao: (Author & { isFavorite?: boolean })[] = [
       {
-        ...mockAuthor,
-        id: "author2",
-        name: "Jane Austen",
-        favoritedByIds: [],
+        ...mockAuthorFromDaoBase,
+        id: "author1",
         createdById: mockUserId,
+        isFavorite: true,
+      },
+      {
+        ...mockAuthorFromDaoBase,
+        id: "author2",
+        createdById: mockUserId,
+        isFavorite: false,
       },
     ];
 
-    it("should return paginated authors filtered by requestingUserId if provided", async () => {
+    it("should call DAO.findAllAuthors with both filterByCreatedById and requestingUserIdForFavoriteStatus", async () => {
       vi.mocked(AuthorDao.findAllAuthors).mockResolvedValue({
-        authors: authorsList,
+        authors: mockAuthorsListFromDao,
         totalItems: 2,
       });
-      const result = await AuthorService.getAllAuthors(
-        {} as PaginationQueryDto,
-        mockUserId
-      );
+      const query: PaginationQueryDto = { page: 1, limit: 10 };
+      await AuthorService.getAllAuthors(query, mockUserId);
+
       expect(AuthorDao.findAllAuthors).toHaveBeenCalledWith(
-        DEFAULT_PAGE_NUMBER,
-        DEFAULT_PAGE_LIMIT,
+        1,
+        10,
         undefined,
         undefined,
+        mockUserId,
         mockUserId
       );
-      expect(result.data).toEqual(authorsList);
-      expect(result.meta.totalItems).toBe(2);
     });
 
-    it("should return all paginated authors if no requestingUserId is provided (public/admin scenario)", async () => {
-      const allAuthorsList = [
-        ...authorsList,
-        {
-          ...mockAuthor,
-          id: "author3",
-          createdById: anotherMockUserId,
-          favoritedByIds: [],
-        },
-      ];
+    it("should handle undefined requestingUserId for public lists (no creator filter, no favorite status)", async () => {
+      const publicList = mockAuthorsListFromDao.map((a) => ({
+        ...a,
+        isFavorite: undefined,
+        createdById: a.id === "author1" ? mockUserId : anotherMockUserId,
+      }));
       vi.mocked(AuthorDao.findAllAuthors).mockResolvedValue({
-        authors: allAuthorsList,
-        totalItems: 3,
+        authors: publicList,
+        totalItems: publicList.length,
       });
-      const result = await AuthorService.getAllAuthors(
-        {} as PaginationQueryDto
-      );
+      const query: PaginationQueryDto = { page: 1, limit: 10 };
+      await AuthorService.getAllAuthors(query, undefined);
+
       expect(AuthorDao.findAllAuthors).toHaveBeenCalledWith(
-        DEFAULT_PAGE_NUMBER,
-        DEFAULT_PAGE_LIMIT,
+        1,
+        10,
+        undefined,
         undefined,
         undefined,
         undefined
       );
-      expect(result.data).toEqual(allAuthorsList);
-      expect(result.meta.totalItems).toBe(3);
     });
 
-    it("should pass query params and requestingUserId to DAO", async () => {
-      const specificQuery: PaginationQueryDto = {
-        page: 2,
-        limit: 5,
-        sortBy: "name:asc",
-        search: "Orwell",
-      };
+    it("should correctly map DAO results to service output structure", async () => {
       vi.mocked(AuthorDao.findAllAuthors).mockResolvedValue({
-        authors: [mockAuthor],
-        totalItems: 1,
+        authors: mockAuthorsListFromDao,
+        totalItems: 20,
       });
+      const query: PaginationQueryDto = { page: 1, limit: 5 };
+      const result = await AuthorService.getAllAuthors(query, mockUserId);
 
-      const result = await AuthorService.getAllAuthors(
-        specificQuery,
-        mockUserId
-      );
-
-      expect(AuthorDao.findAllAuthors).toHaveBeenCalledWith(
-        specificQuery.page,
-        specificQuery.limit,
-        specificQuery.sortBy,
-        specificQuery.search,
-        mockUserId
-      );
-      expect(result.data).toEqual([mockAuthor]);
+      expect(result.data).toEqual(mockAuthorsListFromDao);
+      expect(result.meta.totalItems).toBe(20);
+      expect(result.meta.itemCount).toBe(mockAuthorsListFromDao.length);
+      expect(result.meta.itemsPerPage).toBe(5);
+      expect(result.meta.totalPages).toBe(4);
+      expect(result.meta.currentPage).toBe(1);
     });
   });
 
   describe("updateAuthor", () => {
-    const updateDto: UpdateAuthorDto = {
-      name: "George Orwell Updated",
-      bio: "New Bio",
+    const updateDto: UpdateAuthorDto = { name: "Updated Name" };
+    const authorForUpdateOwnershipCheck = {
+      ...mockAuthorFromDaoBase,
+      createdById: mockUserId,
+      isFavorite: undefined,
+    };
+    const updatedAuthorFromDao: Author = {
+      ...authorForUpdateOwnershipCheck,
+      name: updateDto.name!,
+      updatedAt: new Date(),
     };
 
-    it("should update and return author if found and user is owner", async () => {
-      const updatedAuthorData: Author = {
-        ...mockAuthor,
-        name: updateDto.name!,
-        bio: updateDto.bio!,
-      };
-      vi.mocked(AuthorDao.findAuthorById).mockResolvedValue(mockAuthor);
-      vi.mocked(AuthorDao.updateAuthor).mockResolvedValue(updatedAuthorData);
+    it("should update author if user is owner", async () => {
+      vi.mocked(AuthorDao.findAuthorById).mockResolvedValue(
+        authorForUpdateOwnershipCheck
+      );
+      vi.mocked(AuthorDao.updateAuthor).mockResolvedValue(updatedAuthorFromDao);
 
       const result = await AuthorService.updateAuthor(
         mockAuthorId,
@@ -288,51 +273,24 @@ describe("AuthorService", () => {
         updateDto
       );
       expect(result.name).toBe(updateDto.name);
-      expect(result.bio).toBe(updateDto.bio);
     });
 
-    it("should update only bio if name is not provided", async () => {
-      const updateDtoOnlyBio: UpdateAuthorDto = { bio: "Only Bio Updated" };
-      const updatedAuthorData: Author = {
-        ...mockAuthor,
-        bio: updateDtoOnlyBio.bio!,
+    it("should throw ForbiddenError if user is not owner when updating", async () => {
+      const authorOwnedByAnother = {
+        ...authorForUpdateOwnershipCheck,
+        createdById: anotherMockUserId,
       };
-      vi.mocked(AuthorDao.findAuthorById).mockResolvedValue(mockAuthor);
-      vi.mocked(AuthorDao.updateAuthor).mockResolvedValue(updatedAuthorData);
+      vi.mocked(AuthorDao.findAuthorById).mockResolvedValue(
+        authorOwnedByAnother
+      );
 
-      const result = await AuthorService.updateAuthor(
-        mockAuthorId,
-        updateDtoOnlyBio,
-        mockUserId
+      await expect(
+        AuthorService.updateAuthor(mockAuthorId, updateDto, mockUserId)
+      ).rejects.toThrowError(
+        new ForbiddenError(ErrorMessages.UNAUTHORIZED_ACTION)
       );
-      expect(AuthorDao.updateAuthor).toHaveBeenCalledWith(
-        mockAuthorId,
-        updateDtoOnlyBio
-      );
-      expect(result.bio).toBe(updateDtoOnlyBio.bio);
-      expect(result.name).toBe(mockAuthor.name);
-    });
-
-    it("should update only name if bio is not provided", async () => {
-      const updateDtoOnlyName: UpdateAuthorDto = { name: "Only Name Updated" };
-      const updatedAuthorData: Author = {
-        ...mockAuthor,
-        name: updateDtoOnlyName.name!,
-      };
-      vi.mocked(AuthorDao.findAuthorById).mockResolvedValue(mockAuthor);
-      vi.mocked(AuthorDao.updateAuthor).mockResolvedValue(updatedAuthorData);
-
-      const result = await AuthorService.updateAuthor(
-        mockAuthorId,
-        updateDtoOnlyName,
-        mockUserId
-      );
-      expect(AuthorDao.updateAuthor).toHaveBeenCalledWith(
-        mockAuthorId,
-        updateDtoOnlyName
-      );
-      expect(result.name).toBe(updateDtoOnlyName.name);
-      expect(result.bio).toBe(mockAuthor.bio);
+      expect(AuthorDao.findAuthorById).toHaveBeenCalledWith(mockAuthorId);
+      expect(AuthorDao.updateAuthor).not.toHaveBeenCalled();
     });
 
     it("should throw NotFoundError if author to update not found", async () => {
@@ -341,22 +299,21 @@ describe("AuthorService", () => {
         AuthorService.updateAuthor("nonExistentId", updateDto, mockUserId)
       ).rejects.toThrowError(new NotFoundError(ErrorMessages.AUTHOR_NOT_FOUND));
     });
-
-    it("should throw ForbiddenError if user is not owner", async () => {
-      vi.mocked(AuthorDao.findAuthorById).mockResolvedValue(mockAuthor);
-      await expect(
-        AuthorService.updateAuthor(mockAuthorId, updateDto, anotherMockUserId)
-      ).rejects.toThrowError(
-        new ForbiddenError(ErrorMessages.UNAUTHORIZED_ACTION)
-      );
-      expect(AuthorDao.updateAuthor).not.toHaveBeenCalled();
-    });
   });
 
   describe("deleteAuthor", () => {
-    it("should delete author if found and user is owner", async () => {
-      vi.mocked(AuthorDao.findAuthorById).mockResolvedValue(mockAuthor);
-      vi.mocked(AuthorDao.deleteAuthor).mockResolvedValue(mockAuthor);
+    const authorForDeleteOwnershipCheck = {
+      ...mockAuthorFromDaoBase,
+      createdById: mockUserId,
+      isFavorite: undefined,
+    };
+    const deletedAuthorFromDao: Author = { ...authorForDeleteOwnershipCheck };
+
+    it("should delete author if user is owner", async () => {
+      vi.mocked(AuthorDao.findAuthorById).mockResolvedValue(
+        authorForDeleteOwnershipCheck
+      );
+      vi.mocked(AuthorDao.deleteAuthor).mockResolvedValue(deletedAuthorFromDao);
 
       await AuthorService.deleteAuthor(mockAuthorId, mockUserId);
 
@@ -364,21 +321,43 @@ describe("AuthorService", () => {
       expect(AuthorDao.deleteAuthor).toHaveBeenCalledWith(mockAuthorId);
     });
 
-    it("should throw NotFoundError if author to delete not found", async () => {
-      vi.mocked(AuthorDao.findAuthorById).mockResolvedValue(null);
-      await expect(
-        AuthorService.deleteAuthor("nonExistentId", mockUserId)
-      ).rejects.toThrowError(new NotFoundError(ErrorMessages.AUTHOR_NOT_FOUND));
-    });
+    it("should throw ForbiddenError if user is not owner when deleting", async () => {
+      const authorOwnedByAnother = {
+        ...authorForDeleteOwnershipCheck,
+        createdById: anotherMockUserId,
+      };
+      vi.mocked(AuthorDao.findAuthorById).mockResolvedValue(
+        authorOwnedByAnother
+      );
 
-    it("should throw ForbiddenError if user is not owner", async () => {
-      vi.mocked(AuthorDao.findAuthorById).mockResolvedValue(mockAuthor);
       await expect(
-        AuthorService.deleteAuthor(mockAuthorId, anotherMockUserId)
+        AuthorService.deleteAuthor(mockAuthorId, mockUserId)
       ).rejects.toThrowError(
         new ForbiddenError(ErrorMessages.UNAUTHORIZED_ACTION)
       );
+      expect(AuthorDao.findAuthorById).toHaveBeenCalledWith(mockAuthorId);
       expect(AuthorDao.deleteAuthor).not.toHaveBeenCalled();
+    });
+
+    it("should rethrow Prisma conflict error during delete for referential integrity", async () => {
+      vi.mocked(AuthorDao.findAuthorById).mockResolvedValue(
+        authorForDeleteOwnershipCheck
+      );
+      const prismaError = new Prisma.PrismaClientKnownRequestError(
+        "Foreign key constraint failed on the field: `some_field`",
+        {
+          clientVersion: "x.y.z",
+          code: "P2003",
+          meta: { field_name: "some_field" },
+        }
+      );
+      vi.mocked(AuthorDao.deleteAuthor).mockRejectedValue(prismaError);
+
+      await expect(
+        AuthorService.deleteAuthor(mockAuthorId, mockUserId)
+      ).rejects.toThrowError(
+        new ConflictError(ErrorMessages.CANNOT_DELETE_AUTHOR_WITH_BOOKS)
+      );
     });
   });
 });

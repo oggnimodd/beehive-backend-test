@@ -6,6 +6,7 @@ declare global {
     interface Request {
       user?: User;
       query: PaginationQueryDto & Record<string, any>;
+      pagination?: { page: number; limit: number };
     }
   }
 }

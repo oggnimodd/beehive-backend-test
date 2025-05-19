@@ -1,6 +1,6 @@
 import { prisma } from "@/db/client";
 import type { CreateAuthorDto, UpdateAuthorDto } from "@/dto/author.dto";
-import type { Prisma } from "@prisma/client";
+import type { Author, Prisma } from "@prisma/client";
 
 class AuthorDao {
   async createAuthor(authorData: CreateAuthorDto, userId: string) {
@@ -13,12 +13,36 @@ class AuthorDao {
     });
   }
 
-  async findAuthorById(id: string, include?: Prisma.AuthorInclude) {
+  async findAuthorById(
+    id: string,
+    requestingUserId?: string
+  ): Promise<(Author & { isFavorite?: boolean }) | null> {
     if (!id) return null;
-    return prisma.author.findUnique({
+
+    const authorData = await prisma.author.findUnique({
       where: { id },
-      include,
+      include: {
+        ...(requestingUserId && {
+          favoritedBy: {
+            where: { id: requestingUserId },
+            select: { id: true },
+          },
+        }),
+      },
     });
+
+    if (!authorData) return null;
+
+    if (requestingUserId) {
+      const { favoritedBy, ...restOfAuthor } = authorData as any;
+      return {
+        ...restOfAuthor,
+        isFavorite: favoritedBy && favoritedBy.length > 0,
+      };
+    }
+
+    const { favoritedBy, ...restOfAuthor } = authorData as any;
+    return { ...restOfAuthor, isFavorite: undefined };
   }
 
   async findAuthorsByName(name: string, createdById?: string, limit = 10) {
@@ -41,8 +65,12 @@ class AuthorDao {
     limit: number,
     sortBy?: string,
     search?: string,
-    createdById?: string
-  ) {
+    filterByCreatedById?: string,
+    requestingUserId?: string
+  ): Promise<{
+    authors: (Author & { isFavorite?: boolean })[];
+    totalItems: number;
+  }> {
     const skip = (page - 1) * limit;
     const orderBy: Prisma.AuthorOrderByWithRelationInput[] = [];
     if (sortBy) {
@@ -64,8 +92,8 @@ class AuthorDao {
     }
 
     const where: Prisma.AuthorWhereInput = {};
-    if (createdById) {
-      where.createdById = createdById;
+    if (filterByCreatedById) {
+      where.createdById = filterByCreatedById;
     }
 
     if (search) {
@@ -82,14 +110,35 @@ class AuthorDao {
       where.OR = searchCondition.OR;
     }
 
-    const authors = await prisma.author.findMany({
+    const authorsFromDb = await prisma.author.findMany({
       skip,
       take: limit,
       orderBy,
       where,
+      include: {
+        ...(requestingUserId && {
+          favoritedBy: {
+            where: { id: requestingUserId },
+            select: { id: true },
+          },
+        }),
+      },
     });
+
+    const authorsWithFavoriteStatus = authorsFromDb.map((authorData) => {
+      if (requestingUserId) {
+        const { favoritedBy, ...restOfAuthor } = authorData as any;
+        return {
+          ...restOfAuthor,
+          isFavorite: favoritedBy && favoritedBy.length > 0,
+        };
+      }
+      const { favoritedBy, ...restOfAuthor } = authorData as any;
+      return { ...restOfAuthor, isFavorite: undefined };
+    });
+
     const totalItems = await prisma.author.count({ where });
-    return { authors, totalItems };
+    return { authors: authorsWithFavoriteStatus, totalItems };
   }
 
   async updateAuthor(id: string, authorData: UpdateAuthorDto) {

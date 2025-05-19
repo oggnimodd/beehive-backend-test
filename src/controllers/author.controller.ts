@@ -1,8 +1,14 @@
 import type { NextFunction, Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import AuthorService from "@/services/author.service";
-import type { CreateAuthorDto, UpdateAuthorDto } from "@/dto/author.dto";
+import type {
+  CreateAuthorDto,
+  UpdateAuthorDto,
+  AuthorOutput,
+} from "@/dto/author.dto";
 import type { IdParamDto, PaginationQueryDto } from "@/dto/shared.dto";
+import { ForbiddenError } from "@/errors/error-types";
+import { ErrorMessages } from "@/constants";
 
 class AuthorController {
   async createAuthor(
@@ -29,13 +35,18 @@ class AuthorController {
     next: NextFunction
   ) {
     try {
-      const userId = req.user!.id;
+      const requestingUserId = req.user!.id;
       const authorIdFromParams = req.params.id;
 
-      const author = await AuthorService.getAuthorById(
+      const author = (await AuthorService.getAuthorById(
         authorIdFromParams,
-        userId
-      );
+        requestingUserId
+      )) as AuthorOutput;
+
+      if (!author.createdById || author.createdById !== requestingUserId) {
+        throw new ForbiddenError(ErrorMessages.UNAUTHORIZED_ACTION);
+      }
+
       res.status(StatusCodes.OK).json({
         status: "success",
         data: author,
@@ -46,13 +57,26 @@ class AuthorController {
   }
 
   async getAllAuthors(
-    req: Request<object, object, object, PaginationQueryDto>,
+    req: Request<object, object, object, PaginationQueryDto> & {
+      pagination?: { page: number; limit: number };
+    },
     res: Response,
     next: NextFunction
   ) {
     try {
       const userId = req.user!.id;
-      const result = await AuthorService.getAllAuthors(req.query, userId);
+
+      const paginationQueryDto: PaginationQueryDto = {
+        page: req.pagination?.page ?? Number(req.query.page),
+        limit: req.pagination?.limit ?? Number(req.query.limit),
+        sortBy: req.query.sortBy,
+        search: req.query.search,
+      };
+
+      const result = await AuthorService.getAllAuthors(
+        paginationQueryDto,
+        userId
+      );
       res.status(StatusCodes.OK).json({
         status: "success",
         ...result,

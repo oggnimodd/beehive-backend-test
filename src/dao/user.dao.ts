@@ -9,6 +9,8 @@ class UserDao {
         email: userData.email,
         password: userData.passwordHash,
         name: userData.name,
+        favoriteAuthorIds: [],
+        favoriteBookIds: [],
       },
     });
   }
@@ -25,6 +27,47 @@ class UserDao {
     return prisma.user.findUnique({
       where: { id },
       include,
+    });
+  }
+
+  async addAuthorToFavorites(userId: string, authorId: string) {
+    return prisma.user.update({
+      where: { id: userId },
+      data: {
+        favoriteAuthorIds: {
+          push: authorId,
+        },
+        favoriteAuthors: {
+          connect: { id: authorId },
+        },
+      },
+    });
+  }
+
+  async removeAuthorFromFavorites(userId: string, authorId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { favoriteAuthorIds: true },
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    const updatedFavoriteAuthorIds = user.favoriteAuthorIds.filter(
+      (id) => id !== authorId
+    );
+
+    return prisma.user.update({
+      where: { id: userId },
+      data: {
+        favoriteAuthorIds: {
+          set: updatedFavoriteAuthorIds,
+        },
+        favoriteAuthors: {
+          disconnect: { id: authorId },
+        },
+      },
     });
   }
 }
