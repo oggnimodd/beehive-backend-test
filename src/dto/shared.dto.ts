@@ -23,22 +23,19 @@ export const ZodObjectId = z
     format: "objectid",
   });
 
-export const IdParamSchema = z.object({
+const ActualIdParamObjectSchema = z.object({
   id: ZodObjectId.openapi({
     description: "The unique identifier (ObjectId) of the resource.",
   }),
 });
 
-export const PaginationQuerySchema = z.object({
+const ActualPaginationQueryObjectSchema = z.object({
   page: z.coerce
     .number({ invalid_type_error: "Page must be a number." })
     .int({ message: "Page must be an integer." })
     .positive({ message: "Page must be a positive number." })
     .default(DEFAULT_PAGE_NUMBER)
-    .openapi({
-      description: "Page number for pagination.",
-      example: 1,
-    }),
+    .openapi({ description: "Page number for pagination.", example: 1 }),
   limit: z.coerce
     .number({ invalid_type_error: "Limit must be a number." })
     .int({ message: "Limit must be an integer." })
@@ -58,6 +55,18 @@ export const PaginationQuerySchema = z.object({
     description: "Search term to filter results across relevant fields.",
     example: "Orwell",
   }),
+});
+
+export const IdParamSchema = z.object({
+  params: ActualIdParamObjectSchema,
+  query: z.any().optional(),
+  body: z.any().optional(),
+});
+
+export const PaginationQuerySchema = z.object({
+  query: ActualPaginationQueryObjectSchema,
+  params: z.any().optional(),
+  body: z.any().optional(),
 });
 
 export const PaginationMetaSchema = z
@@ -94,9 +103,7 @@ export const ErrorDetailSchema = z
     message: z.string().openapi({ example: "Password is too short." }),
     code: z.string().optional().openapi({ example: "too_small" }),
   })
-  .openapi({
-    description: "Details of a specific validation error.",
-  });
+  .openapi({ description: "Details of a specific validation error." });
 
 export const ErrorResponseSchema = z
   .object({
@@ -120,5 +127,7 @@ export const ErrorResponseSchema = z
     description: "Standardized error response structure.",
   });
 
-export type IdParamDto = z.infer<typeof IdParamSchema>;
-export type PaginationQueryDto = z.infer<typeof PaginationQuerySchema>;
+export type IdParamDto = z.infer<typeof ActualIdParamObjectSchema>;
+export type PaginationQueryDto = z.infer<
+  typeof ActualPaginationQueryObjectSchema
+>;

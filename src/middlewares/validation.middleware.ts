@@ -2,20 +2,50 @@ import { BadRequestError } from "@/errors/error-types";
 import type { NextFunction, Request, Response } from "express";
 import type { AnyZodObject } from "zod";
 import { ZodError } from "zod";
+import { ErrorMessages } from "@/constants";
 
 export const validate =
   (schema: AnyZodObject) =>
   async (req: Request, _res: Response, next: NextFunction) => {
     try {
-      const parsed = await schema.parseAsync({
+      const dataToParse = {
         body: req.body,
         query: req.query,
         params: req.params,
-      });
+      };
+      const parsed = await schema.parseAsync(dataToParse);
 
-      if (parsed.body) req.body = parsed.body;
-      if (parsed.query) req.query = parsed.query;
-      if (parsed.params) req.params = parsed.params;
+      if (parsed.params !== undefined) {
+        const newParams = parsed.params as Record<string, any>;
+        for (const key in req.params) {
+          if (!Object.prototype.hasOwnProperty.call(newParams, key)) {
+            delete (req.params as any)[key];
+          }
+        }
+        for (const key in newParams) {
+          if (Object.prototype.hasOwnProperty.call(newParams, key)) {
+            (req.params as any)[key] = newParams[key];
+          }
+        }
+      }
+
+      if (parsed.query !== undefined) {
+        const newQuery = parsed.query as Record<string, any>;
+        for (const key in req.query) {
+          if (!Object.prototype.hasOwnProperty.call(newQuery, key)) {
+            delete (req.query as any)[key];
+          }
+        }
+        for (const key in newQuery) {
+          if (Object.prototype.hasOwnProperty.call(newQuery, key)) {
+            (req.query as any)[key] = newQuery[key];
+          }
+        }
+      }
+
+      if (parsed.body !== undefined) {
+        req.body = parsed.body;
+      }
 
       next();
     } catch (error) {
@@ -26,10 +56,7 @@ export const validate =
           code: e.code,
         }));
         return next(
-          new BadRequestError(
-            "Validation failed. Please check your input.",
-            validationErrors
-          )
+          new BadRequestError(ErrorMessages.VALIDATION_ERROR, validationErrors)
         );
       }
       next(error);

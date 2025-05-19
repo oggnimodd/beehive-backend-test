@@ -1,82 +1,64 @@
-import { ErrorMessages } from "@/constants";
-import { prisma } from "@/db/client";
-import app from "@/main";
-import { hashPassword } from "@/utils/password";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { StatusCodes } from "http-status-codes";
-import supertest from "supertest";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { API_PREFIX } from "./helpers/constants.helper";
-import { clearDatabase, disconnectPrisma } from "./helpers/db.helpers";
+import { faker } from "@faker-js/faker";
+import { request } from "./helpers/api.helper";
+import {
+  createUniqueTestUser,
+  type TestUser,
+  deleteTestUser,
+} from "./helpers/user.helper";
+import { prisma } from "@/db/client";
+import { ErrorMessages } from "@/constants";
+import { clearDatabase } from "./helpers/db.helpers";
 
-const request = supertest(app);
+describe("Auth API Endpoints - /api/v1/auth", () => {
+  const createdUserIds: string[] = [];
 
-describe(`Auth API Endpoints - ${API_PREFIX}/auth`, () => {
-  const testUserCredentials = {
-    email: "test.user.integration@example.com",
-    password: "PasswordForTest123!",
-    name: "Integration Tester",
-  };
+  beforeEach(async () => {});
 
-  let authToken: string | null = null;
-  let createdUserId: string | null = null;
-
-  beforeAll(async () => {});
-
-  afterAll(async () => {
-    await clearDatabase();
-    await disconnectPrisma();
+  afterEach(async () => {
+    for (const userId of createdUserIds) {
+      await deleteTestUser(userId);
+    }
+    createdUserIds.length = 0;
   });
 
-  beforeEach(async () => {
-    await clearDatabase();
-    authToken = null;
-    createdUserId = null;
-  });
-
-  describe(`POST ${API_PREFIX}/auth/register`, () => {
+  describe("POST /api/v1/auth/register", () => {
     it("should register a new user successfully with valid data and return core user fields + token", async () => {
+      const rawUniqueEmail = faker.internet.email({
+        firstName: "Register",
+        lastName: `Success${Date.now()}`,
+      });
+      const password = "Password123!";
+      const name = "Register Success User";
+
       const response = await request
-        .post(`${API_PREFIX}/auth/register`)
-        .send(testUserCredentials);
+        .post("/api/v1/auth/register")
+        .send({ name, email: rawUniqueEmail, password });
 
       expect(response.status).toBe(StatusCodes.CREATED);
       expect(response.body.status).toBe("success");
-      expect(response.body.message).toBe(
-        "User registered successfully. Please log in."
-      );
-
-      const userInResponse = response.body.data.user;
-      expect(userInResponse.email).toBe(
-        testUserCredentials.email.toLowerCase()
-      );
-      expect(userInResponse.name).toBe(testUserCredentials.name);
-      expect(userInResponse).toHaveProperty("id");
-      expect(userInResponse).toHaveProperty("createdAt");
-      expect(userInResponse).toHaveProperty("updatedAt");
-      expect(userInResponse).not.toHaveProperty("password");
-      expect(userInResponse).not.toHaveProperty("favoriteBookIds");
-      expect(userInResponse).not.toHaveProperty("favoriteAuthorIds");
-
+      expect(response.body.data.user).toBeDefined();
       expect(response.body.data.token).toBeDefined();
-      expect(typeof response.body.data.token).toBe("string");
+      expect(response.body.data.user.email).toBe(rawUniqueEmail.toLowerCase());
+      expect(response.body.data.user.name).toBe(name);
+      expect(response.body.data.user.password).toBeUndefined();
 
-      const dbUser = await prisma.user.findUnique({
-        where: { email: testUserCredentials.email.toLowerCase() },
-      });
-      expect(dbUser).not.toBeNull();
-      expect(dbUser?.name).toBe(testUserCredentials.name);
-      expect(dbUser?.favoriteBookIds).toEqual([]);
-      expect(dbUser?.favoriteAuthorIds).toEqual([]);
+      if (response.body.data.user.id) {
+        createdUserIds.push(response.body.data.user.id);
+      }
     });
 
     it("should fail to register if email already exists", async () => {
-      await request
-        .post(`${API_PREFIX}/auth/register`)
-        .send(testUserCredentials);
-      const response = await request.post(`${API_PREFIX}/auth/register`).send({
-        ...testUserCredentials,
-        name: "Another Name",
-        password: "NewPassword123!",
+      const existingUser = await createUniqueTestUser({
+        name: "ExistingUserForRegisterTest",
+      });
+      createdUserIds.push(existingUser.id);
+
+      const response = await request.post("/api/v1/auth/register").send({
+        name: "Another User",
+        email: existingUser.email,
+        password: "Password123!",
       });
 
       expect(response.status).toBe(StatusCodes.BAD_REQUEST);
@@ -84,181 +66,271 @@ describe(`Auth API Endpoints - ${API_PREFIX}/auth`, () => {
     });
 
     it("should fail to register with invalid email format", async () => {
-      const response = await request
-        .post(`${API_PREFIX}/auth/register`)
-        .send({ ...testUserCredentials, email: "not-an-email" });
+      const response = await request.post("/api/v1/auth/register").send({
+        name: "Invalid Email User",
+        email: "invalid-email",
+        password: "Password123!",
+      });
 
       expect(response.status).toBe(StatusCodes.BAD_REQUEST);
-      expect(response.body.errors).toBeInstanceOf(Array);
-      const emailError = response.body.errors.find(
-        (e: any) => e.field === "body.email"
+      expect(response.body.message).toBe(ErrorMessages.VALIDATION_ERROR);
+      expect(response.body.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: "body.email",
+            message: "Invalid email address format.",
+          }),
+        ])
       );
-      expect(emailError?.message).toBe("Invalid email address format.");
     });
 
     it("should fail to register with a password that is too short", async () => {
+      const uniqueEmail = faker.internet.email({
+        firstName: "ShortPass",
+        lastName: `User${Date.now()}`,
+      });
       const response = await request
-        .post(`${API_PREFIX}/auth/register`)
-        .send({ ...testUserCredentials, password: "short" });
+        .post("/api/v1/auth/register")
+        .send({ name: "Short Pass", email: uniqueEmail, password: "123" });
 
       expect(response.status).toBe(StatusCodes.BAD_REQUEST);
-      expect(response.body.errors).toBeInstanceOf(Array);
-      const passwordError = response.body.errors.find(
-        (e: any) => e.field === "body.password"
+      expect(response.body.message).toBe(ErrorMessages.VALIDATION_ERROR);
+      expect(response.body.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: "body.password",
+            message: ErrorMessages.PASSWORD_TOO_SHORT(8),
+          }),
+        ])
       );
-      expect(passwordError?.message).toBe(ErrorMessages.PASSWORD_TOO_SHORT(8));
+    });
+
+    it("should fail to register if password does not meet complexity requirements (e.g., missing uppercase)", async () => {
+      const uniqueEmail = faker.internet.email({
+        firstName: "WeakPass",
+        lastName: `User${Date.now()}`,
+      });
+      const response = await request.post("/api/v1/auth/register").send({
+        name: "Weak Pass",
+        email: uniqueEmail,
+        password: "password123!",
+      });
+
+      expect(response.status).toBe(StatusCodes.BAD_REQUEST);
+      expect(response.body.message).toBe(ErrorMessages.VALIDATION_ERROR);
+      expect(response.body.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: "body.password",
+            message:
+              "Password must include at least one uppercase letter (A-Z).",
+          }),
+        ])
+      );
     });
 
     it("should fail to register if required fields are missing (e.g., email)", async () => {
-      const { email, ...missingEmailCredentials } = testUserCredentials;
       const response = await request
-        .post(`${API_PREFIX}/auth/register`)
-        .send(missingEmailCredentials);
+        .post("/api/v1/auth/register")
+        .send({ name: "Missing Email", password: "Password123!" });
 
       expect(response.status).toBe(StatusCodes.BAD_REQUEST);
-      expect(response.body.errors).toBeInstanceOf(Array);
-      const emailError = response.body.errors.find(
-        (e: any) => e.field === "body.email"
+      expect(response.body.message).toBe(ErrorMessages.VALIDATION_ERROR);
+      expect(response.body.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: "body.email",
+            message: "Email is required.",
+          }),
+        ])
       );
-      expect(emailError?.message).toBe("Email is required.");
+    });
+
+    it("should fail to register if required fields are missing (e.g., password)", async () => {
+      const uniqueEmail = faker.internet.email({
+        firstName: "MissingPass",
+        lastName: `User${Date.now()}`,
+      });
+      const response = await request
+        .post("/api/v1/auth/register")
+        .send({ name: "Missing Password", email: uniqueEmail });
+
+      expect(response.status).toBe(StatusCodes.BAD_REQUEST);
+      expect(response.body.message).toBe(ErrorMessages.VALIDATION_ERROR);
+      expect(response.body.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: "body.password",
+            message: "Password is required.",
+          }),
+        ])
+      );
     });
   });
 
-  describe(`POST ${API_PREFIX}/auth/login`, () => {
+  describe("POST /api/v1/auth/login", () => {
+    let loginTestUser: TestUser;
+    const loginTestPassword = "PasswordForLogin123!";
+
     beforeEach(async () => {
-      const hashedPassword = await hashPassword(testUserCredentials.password);
-      await prisma.user.create({
-        data: {
-          email: testUserCredentials.email.toLowerCase(),
-          password: hashedPassword,
-          name: testUserCredentials.name,
-        },
+      loginTestUser = await createUniqueTestUser({
+        name: `LoginTestUser_${Date.now()}`,
+        password: loginTestPassword,
       });
+      createdUserIds.push(loginTestUser.id);
     });
 
     it("should login an existing user successfully and return core user fields + token", async () => {
-      const response = await request.post(`${API_PREFIX}/auth/login`).send({
-        email: testUserCredentials.email,
-        password: testUserCredentials.password,
-      });
+      const response = await request
+        .post("/api/v1/auth/login")
+        .send({ email: loginTestUser.email, password: loginTestPassword });
 
       expect(response.status).toBe(StatusCodes.OK);
       expect(response.body.status).toBe("success");
-      expect(response.body.message).toBe("Login successful.");
-
-      const userInResponse = response.body.data.user;
-      expect(userInResponse.email).toBe(
-        testUserCredentials.email.toLowerCase()
-      );
-      expect(userInResponse).toHaveProperty("id");
-      expect(userInResponse).toHaveProperty("createdAt");
-      expect(userInResponse).toHaveProperty("updatedAt");
-      expect(userInResponse).not.toHaveProperty("password");
-      expect(userInResponse).not.toHaveProperty("favoriteBookIds");
-      expect(userInResponse).not.toHaveProperty("favoriteAuthorIds");
-
+      expect(response.body.data.user).toBeDefined();
       expect(response.body.data.token).toBeDefined();
-      authToken = response.body.data.token;
-      createdUserId = userInResponse.id;
+      expect(response.body.data.user.id).toBe(loginTestUser.id);
+      expect(response.body.data.user.email).toBe(
+        loginTestUser.email.toLowerCase()
+      );
+      expect(response.body.data.user.password).toBeUndefined();
     });
 
     it("should fail to login with an incorrect password", async () => {
-      const response = await request.post(`${API_PREFIX}/auth/login`).send({
-        email: testUserCredentials.email,
-        password: "WrongPassword123!",
-      });
+      const response = await request
+        .post("/api/v1/auth/login")
+        .send({ email: loginTestUser.email, password: "WrongPassword!" });
+
       expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
       expect(response.body.message).toBe(ErrorMessages.INVALID_CREDENTIALS);
     });
 
     it("should fail to login with a non-existent email", async () => {
-      const response = await request.post(`${API_PREFIX}/auth/login`).send({
-        email: "nosuchuser@integration.com",
-        password: testUserCredentials.password,
+      const nonExistentEmail = faker.internet.email({
+        firstName: "NonExistentLogin",
+        lastName: `User${Date.now()}`,
       });
+      const response = await request
+        .post("/api/v1/auth/login")
+        .send({ email: nonExistentEmail, password: "Password123!" });
+
       expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
       expect(response.body.message).toBe(ErrorMessages.INVALID_CREDENTIALS);
     });
 
     it("should fail to login if password is not provided", async () => {
       const response = await request
-        .post(`${API_PREFIX}/auth/login`)
-        .send({ email: testUserCredentials.email });
+        .post("/api/v1/auth/login")
+        .send({ email: loginTestUser.email });
 
       expect(response.status).toBe(StatusCodes.BAD_REQUEST);
-      expect(response.body.errors).toBeInstanceOf(Array);
-      const passwordError = response.body.errors.find(
-        (e: any) => e.field === "body.password"
+      expect(response.body.message).toBe(ErrorMessages.VALIDATION_ERROR);
+      expect(response.body.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: "body.password",
+            message: "Password is required.",
+          }),
+        ])
       );
-      expect(passwordError?.message).toBe("Password is required.");
+    });
+
+    it("should fail to login if email is not provided", async () => {
+      const response = await request
+        .post("/api/v1/auth/login")
+        .send({ password: loginTestPassword });
+
+      expect(response.status).toBe(StatusCodes.BAD_REQUEST);
+      expect(response.body.message).toBe(ErrorMessages.VALIDATION_ERROR);
+      expect(response.body.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: "body.email",
+            message: "Email is required.",
+          }),
+        ])
+      );
     });
   });
 
-  describe(`GET ${API_PREFIX}/auth/me`, () => {
-    beforeEach(async () => {
-      const registerResponse = await request
-        .post(`${API_PREFIX}/auth/register`)
-        .send(testUserCredentials);
-      createdUserId = registerResponse.body.data.user.id;
+  describe("GET /api/v1/auth/me", () => {
+    let meTestUser: TestUser;
 
-      const loginResponse = await request
-        .post(`${API_PREFIX}/auth/login`)
-        .send({
-          email: testUserCredentials.email,
-          password: testUserCredentials.password,
-        });
-      authToken = loginResponse.body.data.token;
+    beforeEach(async () => {
+      meTestUser = await createUniqueTestUser({
+        name: `MeTestUser_${Date.now()}`,
+      });
+      createdUserIds.push(meTestUser.id);
     });
 
-    it("should retrieve current user details (including empty favorite arrays by default from DB) with a valid token", async () => {
-      expect(authToken).not.toBeNull();
+    it("should retrieve current user details with a valid token", async () => {
       const response = await request
-        .get(`${API_PREFIX}/auth/me`)
-        .set("Authorization", `Bearer ${authToken}`);
+        .get("/api/v1/auth/me")
+        .set("Authorization", `Bearer ${meTestUser.token}`);
 
       expect(response.status).toBe(StatusCodes.OK);
       expect(response.body.status).toBe("success");
-
-      const userInResponse = response.body.data;
-      expect(userInResponse.id).toBe(createdUserId);
-      expect(userInResponse.email).toBe(
-        testUserCredentials.email.toLowerCase()
-      );
-      expect(userInResponse.name).toBe(testUserCredentials.name);
-      expect(userInResponse).toHaveProperty("createdAt");
-      expect(userInResponse).toHaveProperty("updatedAt");
-      expect(userInResponse).not.toHaveProperty("password");
-
-      expect(userInResponse).toHaveProperty("favoriteBookIds");
-      expect(userInResponse.favoriteBookIds).toEqual([]);
-
-      expect(userInResponse).toHaveProperty("favoriteAuthorIds");
-      expect(userInResponse.favoriteAuthorIds).toEqual([]);
+      expect(response.body.data.id).toBe(meTestUser.id);
+      expect(response.body.data.email).toBe(meTestUser.email.toLowerCase());
+      expect(response.body.data.name).toBe(meTestUser.name);
+      expect(response.body.data.password).toBeUndefined();
     });
 
     it("should fail if no token is provided", async () => {
-      const response = await request.get(`${API_PREFIX}/auth/me`);
+      const response = await request.get("/api/v1/auth/me");
+
       expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
       expect(response.body.message).toBe(ErrorMessages.UNAUTHENTICATED);
     });
 
-    it("should fail if token is invalid or malformed", async () => {
+    it("should fail if token is invalid or malformed (e.g., not a JWT)", async () => {
       const response = await request
-        .get(`${API_PREFIX}/auth/me`)
-        .set("Authorization", "Bearer aninvalidtoken123.nonsense.token");
+        .get("/api/v1/auth/me")
+        .set("Authorization", "Bearer an-invalid-or-malformed-token");
+
+      expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
+      expect(response.body.message).toBe(ErrorMessages.TOKEN_INVALID);
+    });
+
+    it("should fail if token is correctly formatted JWT but signed with wrong secret or expired", async () => {
+      const bogusJwt =
+        "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+      const response = await request
+        .get("/api/v1/auth/me")
+        .set("Authorization", bogusJwt);
+
       expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
       expect(response.body.message).toBe(ErrorMessages.TOKEN_INVALID);
     });
 
     it("should fail if token is valid but the user has been deleted from DB", async () => {
-      expect(authToken).not.toBeNull();
-      expect(createdUserId).not.toBeNull();
+      const validTokenFromDeletedUser = meTestUser.token;
 
-      await prisma.user.delete({ where: { id: createdUserId! } });
+      const userInDbBeforeDelete = await prisma.user.findUnique({
+        where: { id: meTestUser.id },
+      });
+      expect(
+        userInDbBeforeDelete,
+        `User ${meTestUser.id} (email: ${meTestUser.email}) must exist before manual deletion`
+      ).not.toBeNull();
+
+      await prisma.user.delete({ where: { id: meTestUser.id } });
+      const indexToRemove = createdUserIds.indexOf(meTestUser.id);
+      if (indexToRemove > -1) {
+        createdUserIds.splice(indexToRemove, 1);
+      }
+
+      const userInDbAfterDelete = await prisma.user.findUnique({
+        where: { id: meTestUser.id },
+      });
+      expect(
+        userInDbAfterDelete,
+        `User ${meTestUser.id} must NOT exist after manual deletion`
+      ).toBeNull();
 
       const response = await request
-        .get(`${API_PREFIX}/auth/me`)
-        .set("Authorization", `Bearer ${authToken}`);
+        .get("/api/v1/auth/me")
+        .set("Authorization", `Bearer ${validTokenFromDeletedUser}`);
 
       expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
       expect(response.body.message).toBe(

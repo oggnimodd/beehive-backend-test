@@ -2,17 +2,7 @@ import { ErrorMessages } from "@/constants";
 import UserDao from "@/dao/user.dao";
 import { UnauthorizedError } from "@/errors/error-types";
 import { verifyToken } from "@/utils/jwt";
-import type { User } from "@prisma/client";
 import type { NextFunction, Request, Response } from "express";
-
-// Expose user object on request object to meke it available in controllers
-declare global {
-  namespace Express {
-    interface Request {
-      user?: User;
-    }
-  }
-}
 
 export const protect = async (
   req: Request,

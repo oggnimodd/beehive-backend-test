@@ -1,0 +1,50 @@
+import { Router } from "express";
+import AuthorController from "@/controllers/author.controller";
+import { protect } from "@/middlewares/auth.middleware";
+import { validate } from "@/middlewares/validation.middleware";
+import {
+  CreateAuthorRequestSchema,
+  UpdateAuthorRequestSchema,
+} from "@/dto/author.dto";
+import { IdParamSchema, PaginationQuerySchema } from "@/dto/shared.dto";
+import { withPagination } from "@/utils/request";
+
+const router = Router();
+
+router.post(
+  "/",
+  protect,
+  validate(CreateAuthorRequestSchema),
+  AuthorController.createAuthor
+);
+
+router.get(
+  "/",
+  protect,
+  validate(PaginationQuerySchema),
+  withPagination(AuthorController.getAllAuthors)
+);
+
+router.get(
+  "/:id",
+  protect,
+  validate(IdParamSchema),
+  AuthorController.getAuthorById
+);
+
+router.patch(
+  "/:id",
+  protect,
+  validate(IdParamSchema),
+  validate(UpdateAuthorRequestSchema),
+  AuthorController.updateAuthor
+);
+
+router.delete(
+  "/:id",
+  protect,
+  validate(IdParamSchema),
+  AuthorController.deleteAuthor
+);
+
+export default router;

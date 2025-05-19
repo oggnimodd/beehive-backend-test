@@ -113,7 +113,7 @@ export const LoginUserInputSchema = z
       )
       .openapi({
         description: "User password for login.",
-        example: "password123",
+        example: "Str0ngP@ss!",
         format: "password",
       }),
   })
