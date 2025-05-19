@@ -10,7 +10,8 @@
       "style": {
         "useNumberNamespace": "off",
         "noUselessElse": "off",
-        "noNonNullAssertion": "off"
+        "noNonNullAssertion": "off",
+        "useTemplate": "off"
       },
       "suspicious": {
         "noConsoleLog": "off",
