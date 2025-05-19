@@ -1,7 +1,7 @@
 import { faker } from "@faker-js/faker";
+import type { Author } from "@prisma/client";
 import { StatusCodes } from "http-status-codes";
 import { request } from "./api.helper";
-import type { Author } from "@prisma/client";
 
 export interface CreateAuthorPayloadHelper {
   name: string;

@@ -1,5 +1,5 @@
-import supertest from "supertest";
 import app from "@/main";
+import supertest from "supertest";
 import { API_PREFIX } from "./constants.helper";
 
 export const apiUrl = (path: string): string => {

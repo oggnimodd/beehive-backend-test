@@ -1,5 +1,5 @@
-import type { Request, Response, NextFunction, RequestHandler } from "express";
 import type { PaginationQueryDto } from "@/dto/shared.dto";
+import type { NextFunction, Request, RequestHandler, Response } from "express";
 
 export type PaginatedRequestHandler<P = any, ResBody = any, ReqBody = any> = (
   req: Request<P, ResBody, ReqBody, PaginationQueryDto>,

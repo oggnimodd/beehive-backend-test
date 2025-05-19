@@ -1,7 +1,7 @@
+import { prisma } from "@/db/client";
 import { faker } from "@faker-js/faker";
 import { StatusCodes } from "http-status-codes";
 import { request } from "./api.helper";
-import { prisma } from "@/db/client";
 
 export interface TestUser {
   id: string;

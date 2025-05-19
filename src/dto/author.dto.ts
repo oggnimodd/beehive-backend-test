@@ -1,7 +1,7 @@
 import "zod-openapi/extend";
+import { ErrorMessages } from "@/constants";
 import { z } from "zod";
 import { ZodObjectId } from "./shared.dto";
-import { ErrorMessages } from "@/constants";
 
 const MIN_AUTHOR_NAME_LENGTH = 2;
 const MAX_AUTHOR_NAME_LENGTH = 100;

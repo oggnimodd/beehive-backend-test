@@ -1,14 +1,14 @@
-import { Router } from "express";
 import AuthorController from "@/controllers/author.controller";
 import FavoriteController from "@/controllers/favorite.controller";
-import { protect } from "@/middlewares/auth.middleware";
-import { validate } from "@/middlewares/validation.middleware";
 import {
   CreateAuthorRequestSchema,
   UpdateAuthorRequestSchema,
 } from "@/dto/author.dto";
 import { IdParamSchema, PaginationQuerySchema } from "@/dto/shared.dto";
+import { protect } from "@/middlewares/auth.middleware";
+import { validate } from "@/middlewares/validation.middleware";
 import { withPagination } from "@/utils/request";
+import { Router } from "express";
 
 const router = Router();
 

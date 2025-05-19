@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { Request, Response, NextFunction } from "express";
-import { z } from "zod";
-import { validate } from "@/middlewares/validation.middleware";
-import { BadRequestError } from "@/errors/error-types";
 import { ErrorMessages } from "@/constants";
+import { BadRequestError } from "@/errors/error-types";
+import { validate } from "@/middlewares/validation.middleware";
+import type { NextFunction, Request, Response } from "express";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 const mockRequest = (
   query: any = {},

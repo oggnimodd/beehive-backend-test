@@ -1,8 +1,8 @@
+import { ErrorMessages } from "@/constants";
 import { BadRequestError } from "@/errors/error-types";
 import type { NextFunction, Request, Response } from "express";
 import type { AnyZodObject } from "zod";
 import { ZodError } from "zod";
-import { ErrorMessages } from "@/constants";
 
 export const validate =
   (schema: AnyZodObject) =>

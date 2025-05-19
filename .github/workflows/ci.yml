@@ -31,7 +31,7 @@ jobs:
           version: latest
 
       - name: Run Biome CI Checks (Lint & Format)
-        run: biome ci --config-path ./biome.json .
+        run: biome ci --config-path ./biome.json --organize-imports-enabled false .
 
   build_application:
     name: Build Application

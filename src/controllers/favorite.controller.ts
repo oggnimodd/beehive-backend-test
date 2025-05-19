@@ -1,8 +1,8 @@
+import { DEFAULT_PAGE_LIMIT, DEFAULT_PAGE_NUMBER } from "@/constants";
+import type { IdParamDto, PaginationQueryDto } from "@/dto/shared.dto";
+import FavoriteService from "@/services/favorite.service";
 import type { NextFunction, Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
-import FavoriteService from "@/services/favorite.service";
-import type { IdParamDto, PaginationQueryDto } from "@/dto/shared.dto";
-import { DEFAULT_PAGE_NUMBER, DEFAULT_PAGE_LIMIT } from "@/constants";
 
 class FavoriteController {
   async addAuthorToFavorites(

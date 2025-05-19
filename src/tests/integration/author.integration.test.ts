@@ -1,19 +1,19 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { StatusCodes } from "http-status-codes";
+import { ErrorMessages } from "@/constants";
+import { prisma } from "@/db/client";
 import { faker } from "@faker-js/faker";
+import type { Author } from "@prisma/client";
+import { StatusCodes } from "http-status-codes";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { request } from "./helpers/api.helper";
 import {
-  createUniqueTestUser,
+  type CreateAuthorPayloadHelper,
+  createUniqueAuthorViaApi,
+} from "./helpers/author.helper";
+import {
   type TestUser,
+  createUniqueTestUser,
   deleteTestUser,
 } from "./helpers/user.helper";
-import {
-  createUniqueAuthorViaApi,
-  type CreateAuthorPayloadHelper,
-} from "./helpers/author.helper";
-import type { Author } from "@prisma/client";
-import { prisma } from "@/db/client";
-import { ErrorMessages } from "@/constants";
 
 describe("Author API Endpoints (/api/v1/authors) (Strict Ownership for Favorites)", () => {
   let userA: TestUser;

@@ -1,14 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { StatusCodes } from "http-status-codes";
+import { ErrorMessages } from "@/constants";
+import { prisma } from "@/db/client";
 import { faker } from "@faker-js/faker";
+import { StatusCodes } from "http-status-codes";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { request } from "./helpers/api.helper";
 import {
-  createUniqueTestUser,
   type TestUser,
+  createUniqueTestUser,
   deleteTestUser,
 } from "./helpers/user.helper";
-import { prisma } from "@/db/client";
-import { ErrorMessages } from "@/constants";
 
 describe("Auth API Endpoints - /api/v1/auth", () => {
   const createdUserIds: string[] = [];

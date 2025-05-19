@@ -1,11 +1,5 @@
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
-import { z } from "zod";
-import {
-  createDocument,
-  extendZodWithOpenApi,
-  type ZodOpenApiOperationObject,
-} from "zod-openapi";
 import { config } from "@/config";
 import {
   AuthResponseDataSchema,
@@ -14,15 +8,21 @@ import {
   UserRegistrationInputSchema,
 } from "@/dto/auth.dto";
 import {
-  ErrorResponseSchema,
-  ZodObjectId,
-  PaginationMetaSchema,
-} from "@/dto/shared.dto";
-import {
   AuthorOutputSchema,
   CreateAuthorInputSchema,
   UpdateAuthorInputSchema,
 } from "@/dto/author.dto";
+import {
+  ErrorResponseSchema,
+  PaginationMetaSchema,
+  ZodObjectId,
+} from "@/dto/shared.dto";
+import { z } from "zod";
+import {
+  type ZodOpenApiOperationObject,
+  createDocument,
+  extendZodWithOpenApi,
+} from "zod-openapi";
 
 extendZodWithOpenApi(z);
 

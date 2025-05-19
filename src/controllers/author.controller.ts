@@ -1,14 +1,14 @@
-import type { NextFunction, Request, Response } from "express";
-import { StatusCodes } from "http-status-codes";
-import AuthorService from "@/services/author.service";
+import { ErrorMessages } from "@/constants";
 import type {
+  AuthorOutput,
   CreateAuthorDto,
   UpdateAuthorDto,
-  AuthorOutput,
 } from "@/dto/author.dto";
 import type { IdParamDto, PaginationQueryDto } from "@/dto/shared.dto";
 import { ForbiddenError } from "@/errors/error-types";
-import { ErrorMessages } from "@/constants";
+import AuthorService from "@/services/author.service";
+import type { NextFunction, Request, Response } from "express";
+import { StatusCodes } from "http-status-codes";
 
 class AuthorController {
   async createAuthor(

@@ -1,18 +1,18 @@
 import {
-  ErrorMessages,
-  DEFAULT_PAGE_NUMBER,
   DEFAULT_PAGE_LIMIT,
+  DEFAULT_PAGE_NUMBER,
+  ErrorMessages,
 } from "@/constants";
-import UserDao from "@/dao/user.dao";
 import AuthorDao from "@/dao/author.dao";
+import UserDao from "@/dao/user.dao";
+import { prisma } from "@/db/client";
+import type { PaginationQueryDto } from "@/dto/shared.dto";
 import {
-  NotFoundError,
   BadRequestError,
   ForbiddenError,
+  NotFoundError,
 } from "@/errors/error-types";
-import type { User, Author, Prisma as PrismaTypes } from "@prisma/client";
-import type { PaginationQueryDto } from "@/dto/shared.dto";
-import { prisma } from "@/db/client";
+import type { Author, Prisma as PrismaTypes, User } from "@prisma/client";
 
 class FavoriteService {
   async addAuthorToFavorites(userId: string, authorId: string): Promise<User> {
