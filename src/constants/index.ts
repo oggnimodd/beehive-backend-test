@@ -37,6 +37,8 @@ export const ErrorMessages = {
     `A book with ISBN "${isbn}" already exists.`,
   NO_UPDATE_DATA:
     "No data provided for update. At least one field must be specified.",
+
+  ISBN_ALREADY_EXISTS: "ISBN already exists.",
 };
 
 export const DEFAULT_PAGE_NUMBER = 1;

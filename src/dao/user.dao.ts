@@ -70,6 +70,47 @@ class UserDao {
       },
     });
   }
+
+  async addBookToFavorites(userId: string, bookId: string) {
+    return prisma.user.update({
+      where: { id: userId },
+      data: {
+        favoriteBookIds: {
+          push: bookId,
+        },
+        favoriteBooks: {
+          connect: { id: bookId },
+        },
+      },
+    });
+  }
+
+  async removeBookFromFavorites(userId: string, bookId: string) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { favoriteBookIds: true },
+    });
+
+    if (!user) {
+      return null;
+    }
+
+    const updatedFavoriteBookIds = user.favoriteBookIds.filter(
+      (id) => id !== bookId
+    );
+
+    return prisma.user.update({
+      where: { id: userId },
+      data: {
+        favoriteBookIds: {
+          set: updatedFavoriteBookIds,
+        },
+        favoriteBooks: {
+          disconnect: { id: bookId },
+        },
+      },
+    });
+  }
 }
 
 export default new UserDao();

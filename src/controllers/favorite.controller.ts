@@ -77,6 +77,44 @@ class FavoriteController {
       next(error);
     }
   }
+
+  async addBookToFavorites(
+    req: Request<IdParamDto, object, object>,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const userId = req.user!.id;
+      const bookId = req.params.id;
+
+      await FavoriteService.addBookToFavorites(userId, bookId);
+      res.status(StatusCodes.OK).json({
+        status: "success",
+        message: "Book added to favorites successfully.",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async removeBookFromFavorites(
+    req: Request<IdParamDto, object, object>,
+    res: Response,
+    next: NextFunction
+  ) {
+    try {
+      const userId = req.user!.id;
+      const bookId = req.params.id;
+
+      await FavoriteService.removeBookFromFavorites(userId, bookId);
+      res.status(StatusCodes.OK).json({
+        status: "success",
+        message: "Book removed from favorites successfully.",
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export default new FavoriteController();

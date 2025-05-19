@@ -13,6 +13,11 @@ import {
   UpdateAuthorInputSchema,
 } from "@/dto/author.dto";
 import {
+  BookOutputSchema,
+  CreateBookInputSchema,
+  UpdateBookInputSchema,
+} from "@/dto/book.dto";
+import {
   ErrorResponseSchema,
   PaginationMetaSchema,
   ZodObjectId,
@@ -53,9 +58,13 @@ const SearchQueryParameter = z.string().optional().openapi({
   example: "Orwell",
 });
 
+const AuthorIdQueryParameter = ZodObjectId.optional().openapi({
+  description: "Filter books by a specific author ID.",
+  example: "60c72b2f9b1e8a5a4c8f0b1a",
+});
+
 let apiBaseUrl = "";
 let serverDescription = "API Server";
-
 if (
   process.env.NETLIFY_DEV === "true" ||
   process.env.NETLIFY_LOCAL === "true"
@@ -110,6 +119,9 @@ const documentBase = {
       CreateAuthorInput: CreateAuthorInputSchema,
       UpdateAuthorInput: UpdateAuthorInputSchema,
       AuthorOutput: AuthorOutputSchema,
+      CreateBookInput: CreateBookInputSchema,
+      UpdateBookInput: UpdateBookInputSchema,
+      BookOutput: BookOutputSchema,
       ErrorResponse: ErrorResponseSchema,
       PaginationMeta: PaginationMetaSchema,
     },
@@ -126,9 +138,14 @@ const documentBase = {
         "Endpoints for managing Author resources. All operations are scoped to authors created by the authenticated user.",
     },
     {
+      name: "Books",
+      description:
+        "Endpoints for managing Book resources. All operations are scoped to books created by the authenticated user.",
+    },
+    {
       name: "Favorites",
       description:
-        "Endpoints for managing the authenticated user's favorite authors. Users can only favorite authors they have created.",
+        "Endpoints for managing the authenticated user's favorite authors and books. Users can only favorite items they have created.",
     },
   ],
 };
@@ -166,11 +183,15 @@ const document = createDocument({
           },
           "400": {
             description: "Bad Request (e.g., validation error, email exists)",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "500": {
             description: "Internal Server Error",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
         },
       } satisfies ZodOpenApiOperationObject,
@@ -202,15 +223,21 @@ const document = createDocument({
           },
           "400": {
             description: "Bad Request (e.g., validation error)",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "401": {
             description: "Unauthorized (e.g., invalid credentials)",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "500": {
             description: "Internal Server Error",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
         },
       } satisfies ZodOpenApiOperationObject,
@@ -235,11 +262,15 @@ const document = createDocument({
           "401": {
             description:
               "Unauthorized (e.g., token missing, invalid, or user not found)",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "500": {
             description: "Internal Server Error",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
         },
       } satisfies ZodOpenApiOperationObject,
@@ -272,21 +303,27 @@ const document = createDocument({
           },
           "400": {
             description: "Bad Request (e.g., validation error on query params)",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "401": {
             description: "Unauthorized",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "500": {
             description: "Internal Server Error",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
         },
       } satisfies ZodOpenApiOperationObject,
       post: {
         tags: ["Authors"],
-        summary: "Create a new author (owned by the current user)",
+        summary: "Create a new author",
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -313,15 +350,21 @@ const document = createDocument({
           },
           "400": {
             description: "Bad Request (e.g., validation error)",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "401": {
             description: "Unauthorized",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "500": {
             description: "Internal Server Error",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
         },
       } satisfies ZodOpenApiOperationObject,
@@ -348,23 +391,33 @@ const document = createDocument({
           },
           "400": {
             description: "Bad Request (invalid ID format)",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "401": {
             description: "Unauthorized",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "403": {
             description: "Forbidden (user does not own this author)",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "404": {
             description: "Author not found",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "500": {
             description: "Internal Server Error",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
         },
       } satisfies ZodOpenApiOperationObject,
@@ -400,23 +453,33 @@ const document = createDocument({
           },
           "400": {
             description: "Bad Request (e.g., validation error, no update data)",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "401": {
             description: "Unauthorized",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "403": {
             description: "Forbidden (user does not own this author)",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "404": {
             description: "Author not found",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "500": {
             description: "Internal Server Error",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
         },
       } satisfies ZodOpenApiOperationObject,
@@ -444,23 +507,33 @@ const document = createDocument({
           },
           "401": {
             description: "Unauthorized",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "403": {
             description: "Forbidden (user does not own this author)",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "404": {
             description: "Author not found",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "409": {
             description: "Conflict (e.g., author has associated books)",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "500": {
             description: "Internal Server Error",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
         },
       } satisfies ZodOpenApiOperationObject,
@@ -490,24 +563,33 @@ const document = createDocument({
           "400": {
             description:
               "Bad Request (e.g., author already in favorites, invalid ID)",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "401": {
             description: "Unauthorized",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "403": {
-            description:
-              "Forbidden (user does not own the author to favorite it)",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            description: "Forbidden (user does not own the author to favorite)",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "404": {
             description: "Author or User not found",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "500": {
             description: "Internal Server Error",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
         },
       } satisfies ZodOpenApiOperationObject,
@@ -535,24 +617,34 @@ const document = createDocument({
           "400": {
             description:
               "Bad Request (e.g., author not in favorites, invalid ID)",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "401": {
             description: "Unauthorized",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "403": {
             description:
-              "Forbidden (user does not own the author to unfavorite it)",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+              "Forbidden (user does not own the author to unfavorite)",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "404": {
             description: "Author or User not found",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "500": {
             description: "Internal Server Error",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
         },
       } satisfies ZodOpenApiOperationObject,
@@ -560,10 +652,9 @@ const document = createDocument({
     "/favorites/authors": {
       get: {
         tags: ["Favorites"],
-        summary:
-          "Get the current user's favorite authors (paginated, only authors created by the user)",
+        summary: "Get the current user's favorite authors",
         description:
-          "Retrieves a paginated list of authors that the authenticated user has marked as favorite. Note: Only authors originally created by this user can be favorited and will appear in this list. The 'sortBy' and 'search' query parameters are accepted by validation but currently not implemented for filtering/sorting this specific list by the backend service.",
+          "Retrieves a paginated list of authors that the authenticated user has marked as favorite. Note: Only authors originally created by this user can be favorited and will appear in this list. The 'sortBy' and 'search' query parameters are accepted by validation but currently not fully implemented for filtering/sorting this specific list by the backend service beyond basic ID matching.",
         security: [{ bearerAuth: [] }],
         requestParams: {
           query: z.object({
@@ -595,19 +686,409 @@ const document = createDocument({
           },
           "400": {
             description: "Bad Request (e.g., validation error on query params)",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "401": {
             description: "Unauthorized",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "404": {
             description: "User not found (should not happen if token is valid)",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
           "500": {
             description: "Internal Server Error",
-            content: { "application/json": { schema: ErrorResponseSchema } },
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+        },
+      } satisfies ZodOpenApiOperationObject,
+    },
+    "/books": {
+      get: {
+        tags: ["Books"],
+        summary: "Get all books created by the current user",
+        security: [{ bearerAuth: [] }],
+        requestParams: {
+          query: z.object({
+            page: PageQueryParameter,
+            limit: LimitQueryParameter,
+            sortBy: SortByQueryParameter,
+            search: SearchQueryParameter,
+            authorId: AuthorIdQueryParameter,
+          }),
+        },
+        responses: {
+          "200": {
+            description: "A list of books created by the current user.",
+            content: {
+              "application/json": {
+                schema: z.object({
+                  status: z.string().openapi({ example: "success" }),
+                  data: z.array(BookOutputSchema),
+                  meta: PaginationMetaSchema,
+                }),
+              },
+            },
+          },
+          "400": {
+            description: "Bad Request (e.g., validation error on query params)",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "401": {
+            description: "Unauthorized",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "500": {
+            description: "Internal Server Error",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+        },
+      } satisfies ZodOpenApiOperationObject,
+      post: {
+        tags: ["Books"],
+        summary: "Create a new book",
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: CreateBookInputSchema,
+            },
+          },
+        },
+        responses: {
+          "201": {
+            description: "Book created successfully.",
+            content: {
+              "application/json": {
+                schema: z.object({
+                  status: z.string().openapi({ example: "success" }),
+                  message: z
+                    .string()
+                    .openapi({ example: "Book created successfully." }),
+                  data: BookOutputSchema,
+                }),
+              },
+            },
+          },
+          "400": {
+            description:
+              "Bad Request (e.g., validation error, author not found, ISBN exists)",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "401": {
+            description: "Unauthorized",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "409": {
+            description: "Conflict (e.g., ISBN already exists)",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "500": {
+            description: "Internal Server Error",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+        },
+      } satisfies ZodOpenApiOperationObject,
+    },
+    "/books/{id}": {
+      get: {
+        tags: ["Books"],
+        summary: "Get a specific book by ID",
+        security: [{ bearerAuth: [] }],
+        requestParams: {
+          path: z.object({ id: IdPathParameter }),
+        },
+        responses: {
+          "200": {
+            description: "Details of the book.",
+            content: {
+              "application/json": {
+                schema: z.object({
+                  status: z.string().openapi({ example: "success" }),
+                  data: BookOutputSchema,
+                }),
+              },
+            },
+          },
+          "400": {
+            description: "Bad Request (invalid ID format)",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "401": {
+            description: "Unauthorized",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "403": {
+            description: "Forbidden (user does not own this book)",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "404": {
+            description: "Book not found",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "500": {
+            description: "Internal Server Error",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+        },
+      } satisfies ZodOpenApiOperationObject,
+      patch: {
+        tags: ["Books"],
+        summary: "Update an existing book",
+        security: [{ bearerAuth: [] }],
+        requestParams: {
+          path: z.object({ id: IdPathParameter }),
+        },
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: UpdateBookInputSchema,
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Book updated successfully.",
+            content: {
+              "application/json": {
+                schema: z.object({
+                  status: z.string().openapi({ example: "success" }),
+                  message: z
+                    .string()
+                    .openapi({ example: "Book updated successfully." }),
+                  data: BookOutputSchema,
+                }),
+              },
+            },
+          },
+          "400": {
+            description:
+              "Bad Request (e.g., validation error, no update data, author not found, ISBN exists)",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "401": {
+            description: "Unauthorized",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "403": {
+            description: "Forbidden (user does not own this book)",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "404": {
+            description: "Book not found",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "409": {
+            description: "Conflict (e.g., ISBN already exists)",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "500": {
+            description: "Internal Server Error",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+        },
+      } satisfies ZodOpenApiOperationObject,
+      delete: {
+        tags: ["Books"],
+        summary: "Delete a book by ID",
+        security: [{ bearerAuth: [] }],
+        requestParams: {
+          path: z.object({ id: IdPathParameter }),
+        },
+        responses: {
+          "200": {
+            description: "Book deleted successfully.",
+            content: {
+              "application/json": {
+                schema: z.object({
+                  status: z.string().openapi({ example: "success" }),
+                  message: z
+                    .string()
+                    .openapi({ example: "Book deleted successfully." }),
+                  data: z.null().openapi({ example: null }),
+                }),
+              },
+            },
+          },
+          "401": {
+            description: "Unauthorized",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "403": {
+            description: "Forbidden (user does not own this book)",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "404": {
+            description: "Book not found",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "500": {
+            description: "Internal Server Error",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+        },
+      } satisfies ZodOpenApiOperationObject,
+    },
+    "/books/{id}/favorite": {
+      post: {
+        tags: ["Favorites", "Books"],
+        summary: "Add a book to the current user's favorites",
+        security: [{ bearerAuth: [] }],
+        requestParams: {
+          path: z.object({ id: IdPathParameter }),
+        },
+        responses: {
+          "200": {
+            description: "Book added to favorites successfully.",
+            content: {
+              "application/json": {
+                schema: z.object({
+                  status: z.string().openapi({ example: "success" }),
+                  message: z.string().openapi({
+                    example: "Book added to favorites successfully.",
+                  }),
+                }),
+              },
+            },
+          },
+          "400": {
+            description:
+              "Bad Request (e.g., book already in favorites, invalid ID)",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "401": {
+            description: "Unauthorized",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "403": {
+            description: "Forbidden (user does not own the book to favorite)",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "404": {
+            description: "Book or User not found",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "500": {
+            description: "Internal Server Error",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+        },
+      } satisfies ZodOpenApiOperationObject,
+      delete: {
+        tags: ["Favorites", "Books"],
+        summary: "Remove a book from the current user's favorites",
+        security: [{ bearerAuth: [] }],
+        requestParams: {
+          path: z.object({ id: IdPathParameter }),
+        },
+        responses: {
+          "200": {
+            description: "Book removed from favorites successfully.",
+            content: {
+              "application/json": {
+                schema: z.object({
+                  status: z.string().openapi({ example: "success" }),
+                  message: z.string().openapi({
+                    example: "Book removed from favorites successfully.",
+                  }),
+                }),
+              },
+            },
+          },
+          "400": {
+            description:
+              "Bad Request (e.g., book not in favorites, invalid ID)",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "401": {
+            description: "Unauthorized",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "403": {
+            description: "Forbidden (user does not own the book to unfavorite)",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "404": {
+            description: "Book or User not found",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
+          },
+          "500": {
+            description: "Internal Server Error",
+            content: {
+              "application/json": { schema: ErrorResponseSchema },
+            },
           },
         },
       } satisfies ZodOpenApiOperationObject,

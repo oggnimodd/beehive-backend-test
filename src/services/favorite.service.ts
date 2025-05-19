@@ -4,6 +4,7 @@ import {
   ErrorMessages,
 } from "@/constants";
 import AuthorDao from "@/dao/author.dao";
+import BookDao from "@/dao/book.dao";
 import UserDao from "@/dao/user.dao";
 import { prisma } from "@/db/client";
 import type { PaginationQueryDto } from "@/dto/shared.dto";
@@ -136,6 +137,63 @@ class FavoriteService {
         currentPage: page,
       },
     };
+  }
+
+  async addBookToFavorites(userId: string, bookId: string): Promise<User> {
+    const userExists = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, favoriteBookIds: true },
+    });
+
+    if (!userExists) {
+      throw new NotFoundError(ErrorMessages.USER_NOT_FOUND);
+    }
+
+    const book = await BookDao.findBookById(bookId);
+    if (!book) {
+      throw new NotFoundError(ErrorMessages.BOOK_NOT_FOUND);
+    }
+
+    if (book.createdById !== userId) {
+      throw new ForbiddenError(ErrorMessages.UNAUTHORIZED_ACTION);
+    }
+
+    if (userExists.favoriteBookIds.includes(bookId)) {
+      throw new BadRequestError(
+        ErrorMessages.ITEM_ALREADY_IN_FAVORITES("Book")
+      );
+    }
+
+    return UserDao.addBookToFavorites(userId, bookId);
+  }
+
+  async removeBookFromFavorites(
+    userId: string,
+    bookId: string
+  ): Promise<User | null> {
+    const userExists = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, favoriteBookIds: true },
+    });
+
+    if (!userExists) {
+      throw new NotFoundError(ErrorMessages.USER_NOT_FOUND);
+    }
+
+    const book = await BookDao.findBookById(bookId);
+    if (!book) {
+      throw new NotFoundError(ErrorMessages.BOOK_NOT_FOUND);
+    }
+
+    if (book.createdById !== userId) {
+      throw new ForbiddenError(ErrorMessages.UNAUTHORIZED_ACTION);
+    }
+
+    if (!userExists.favoriteBookIds.includes(bookId)) {
+      throw new BadRequestError(ErrorMessages.ITEM_NOT_IN_FAVORITES("Book"));
+    }
+
+    return UserDao.removeBookFromFavorites(userId, bookId);
   }
 }
 
