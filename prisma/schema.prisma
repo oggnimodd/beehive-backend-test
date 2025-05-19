@@ -19,7 +19,7 @@ model User {
   favoriteBookIds   String[] @db.ObjectId
   favoriteAuthors   Author[] @relation("UserFavoriteAuthors", fields: [favoriteAuthorIds], references: [id])
   favoriteAuthorIds String[] @db.ObjectId
-
+  createdBooks      Book[]   @relation("UserCreatedBooks")
   createdAuthors    Author[] @relation("UserCreatedAuthors") 
   @@map("users")
 }
