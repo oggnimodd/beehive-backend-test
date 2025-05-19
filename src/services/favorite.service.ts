@@ -5,8 +5,12 @@ import {
 } from "@/constants";
 import UserDao from "@/dao/user.dao";
 import AuthorDao from "@/dao/author.dao";
-import { NotFoundError, BadRequestError } from "@/errors/error-types";
-import type { User, Author } from "@prisma/client";
+import {
+  NotFoundError,
+  BadRequestError,
+  ForbiddenError,
+} from "@/errors/error-types";
+import type { User, Author, Prisma as PrismaTypes } from "@prisma/client";
 import type { PaginationQueryDto } from "@/dto/shared.dto";
 import { prisma } from "@/db/client";
 
@@ -16,16 +20,18 @@ class FavoriteService {
       where: { id: userId },
       select: { id: true, favoriteAuthorIds: true },
     });
+
     if (!userExists) {
       throw new NotFoundError(ErrorMessages.USER_NOT_FOUND);
     }
 
-    const authorExists = await prisma.author.findUnique({
-      where: { id: authorId },
-      select: { id: true },
-    });
-    if (!authorExists) {
+    const author = await AuthorDao.findAuthorById(authorId);
+    if (!author) {
       throw new NotFoundError(ErrorMessages.AUTHOR_NOT_FOUND);
+    }
+
+    if (author.createdById !== userId) {
+      throw new ForbiddenError(ErrorMessages.UNAUTHORIZED_ACTION);
     }
 
     if (userExists.favoriteAuthorIds.includes(authorId)) {
@@ -33,7 +39,6 @@ class FavoriteService {
         ErrorMessages.ITEM_ALREADY_IN_FAVORITES("Author")
       );
     }
-
     return UserDao.addAuthorToFavorites(userId, authorId);
   }
 
@@ -45,22 +50,23 @@ class FavoriteService {
       where: { id: userId },
       select: { id: true, favoriteAuthorIds: true },
     });
+
     if (!userExists) {
       throw new NotFoundError(ErrorMessages.USER_NOT_FOUND);
     }
 
-    const authorExists = await prisma.author.findUnique({
-      where: { id: authorId },
-      select: { id: true },
-    });
-    if (!authorExists) {
+    const author = await AuthorDao.findAuthorById(authorId);
+    if (!author) {
       throw new NotFoundError(ErrorMessages.AUTHOR_NOT_FOUND);
+    }
+
+    if (author.createdById !== userId) {
+      throw new ForbiddenError(ErrorMessages.UNAUTHORIZED_ACTION);
     }
 
     if (!userExists.favoriteAuthorIds.includes(authorId)) {
       throw new BadRequestError(ErrorMessages.ITEM_NOT_IN_FAVORITES("Author"));
     }
-
     return UserDao.removeAuthorFromFavorites(userId, authorId);
   }
 
@@ -97,25 +103,31 @@ class FavoriteService {
       };
     }
 
+    const whereClause: PrismaTypes.AuthorWhereInput = {
+      id: { in: userWithFavoriteIds.favoriteAuthorIds },
+      createdById: userId,
+    };
+
     const favoriteAuthors = await prisma.author.findMany({
-      where: {
-        id: { in: userWithFavoriteIds.favoriteAuthorIds },
-      },
+      where: whereClause,
       skip: skip,
       take: limit,
     });
 
     const totalFavoriteAuthors = await prisma.author.count({
-      where: {
-        id: { in: userWithFavoriteIds.favoriteAuthorIds },
-      },
+      where: whereClause,
     });
 
     const totalPages = Math.ceil(totalFavoriteAuthors / limit);
     const itemCount = favoriteAuthors.length;
 
+    const resultData = favoriteAuthors.map((author) => ({
+      ...author,
+      isFavorite: true,
+    }));
+
     return {
-      data: favoriteAuthors,
+      data: resultData,
       meta: {
         totalItems: totalFavoriteAuthors,
         itemCount,

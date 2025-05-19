@@ -7,307 +7,334 @@ import {
   type TestUser,
   deleteTestUser,
 } from "./helpers/user.helper";
-import { createUniqueAuthorViaApi } from "./helpers/author.helper";
-import type { Author } from "@prisma/client";
 import { prisma } from "@/db/client";
 import { ErrorMessages } from "@/constants";
 
-describe("Favorite Author API Endpoints", () => {
-  let testUser: TestUser;
-  let anotherUser: TestUser;
-  let authorToFavorite: Author;
-  let anotherAuthorToList: Author;
+describe("Auth API Endpoints - /api/v1/auth", () => {
+  const createdUserIds: string[] = [];
 
-  const userIdsToClean: string[] = [];
-  const authorIdsToClean: string[] = [];
-
-  beforeEach(async () => {
-    testUser = await createUniqueTestUser({
-      name: `FavoriteTestUser_${Date.now()}`,
-    });
-    anotherUser = await createUniqueTestUser({
-      name: `AnotherFavoriteUser_${Date.now()}`,
-    });
-    userIdsToClean.push(testUser.id, anotherUser.id);
-
-    authorToFavorite = await createUniqueAuthorViaApi(anotherUser.token, {
-      name: `AuthorToBeFavorited_${Date.now()}`,
-    });
-    anotherAuthorToList = await createUniqueAuthorViaApi(anotherUser.token, {
-      name: `AnotherGeneralAuthor_${Date.now()}`,
-    });
-    authorIdsToClean.push(authorToFavorite.id, anotherAuthorToList.id);
-  });
+  beforeEach(async () => {});
 
   afterEach(async () => {
-    if (authorIdsToClean.length > 0) {
-      try {
-        await prisma.author.deleteMany({
-          where: { id: { in: authorIdsToClean } },
-        });
-      } catch (e) {}
-      authorIdsToClean.length = 0;
-    }
-    for (const userId of userIdsToClean) {
-      try {
-        await prisma.user.update({
-          where: { id: userId },
-          data: {
-            favoriteAuthorIds: { set: [] },
-            favoriteAuthors: { set: [] },
-          },
-        });
-      } catch (e) {}
-    }
-    for (const userId of userIdsToClean) {
+    for (const userId of createdUserIds) {
       await deleteTestUser(userId);
     }
-    userIdsToClean.length = 0;
+    createdUserIds.length = 0;
   });
 
-  describe("POST /api/v1/authors/:authorId/favorite", () => {
-    it("should successfully add an author to favorites for authenticated user", async () => {
-      const response = await request
-        .post(`/api/v1/authors/${authorToFavorite.id}/favorite`)
-        .set("Authorization", `Bearer ${testUser.token}`);
-
-      expect(response.status).toBe(StatusCodes.OK);
-      expect(response.body.message).toContain(
-        "Author added to favorites successfully"
-      );
-
-      const userDb = await prisma.user.findUnique({
-        where: { id: testUser.id },
-        select: { favoriteAuthorIds: true },
+  describe("POST /api/v1/auth/register", () => {
+    it("should register a new user successfully with valid data and return core user fields + token", async () => {
+      const rawUniqueEmail = faker.internet.email({
+        firstName: "Register",
+        lastName: `Success${Date.now()}`,
       });
-      expect(userDb?.favoriteAuthorIds).toContain(authorToFavorite.id);
+      const password = "Password123!";
+      const name = "Register Success User";
+
+      const response = await request
+        .post("/api/v1/auth/register")
+        .send({ name, email: rawUniqueEmail, password });
+
+      expect(response.status).toBe(StatusCodes.CREATED);
+      expect(response.body.status).toBe("success");
+      expect(response.body.data.user).toBeDefined();
+      expect(response.body.data.token).toBeDefined();
+      expect(response.body.data.user.email).toBe(rawUniqueEmail.toLowerCase());
+      expect(response.body.data.user.name).toBe(name);
+      expect(response.body.data.user.password).toBeUndefined();
+
+      if (response.body.data.user.id) {
+        createdUserIds.push(response.body.data.user.id);
+      }
     });
 
-    it("should FAIL with 400 if author is already favorited", async () => {
-      await request
-        .post(`/api/v1/authors/${authorToFavorite.id}/favorite`)
-        .set("Authorization", `Bearer ${testUser.token}`);
-      const response = await request
-        .post(`/api/v1/authors/${authorToFavorite.id}/favorite`)
-        .set("Authorization", `Bearer ${testUser.token}`);
+    it("should fail to register if email already exists", async () => {
+      const existingUser = await createUniqueTestUser({
+        name: "ExistingUserForRegisterTest",
+      });
+      createdUserIds.push(existingUser.id);
+
+      const response = await request.post("/api/v1/auth/register").send({
+        name: "Another User",
+        email: existingUser.email,
+        password: "Password123!",
+      });
 
       expect(response.status).toBe(StatusCodes.BAD_REQUEST);
-      expect(response.body.message).toBe(
-        ErrorMessages.ITEM_ALREADY_IN_FAVORITES("Author")
-      );
+      expect(response.body.message).toBe(ErrorMessages.EMAIL_ALREADY_EXISTS);
     });
 
-    it("should FAIL with 404 if author to favorite does not exist", async () => {
-      const nonExistentAuthorId = faker.database.mongodbObjectId();
-      const response = await request
-        .post(`/api/v1/authors/${nonExistentAuthorId}/favorite`)
-        .set("Authorization", `Bearer ${testUser.token}`);
-      expect(response.status).toBe(StatusCodes.NOT_FOUND);
-      expect(response.body.message).toBe(ErrorMessages.AUTHOR_NOT_FOUND);
-    });
-
-    it("should FAIL if not authenticated", async () => {
-      const response = await request.post(
-        `/api/v1/authors/${authorToFavorite.id}/favorite`
-      );
-      expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
-    });
-  });
-
-  describe("DELETE /api/v1/authors/:authorId/favorite", () => {
-    beforeEach(async () => {
-      await request
-        .post(`/api/v1/authors/${authorToFavorite.id}/favorite`)
-        .set("Authorization", `Bearer ${testUser.token}`);
-    });
-
-    it("should successfully remove an author from favorites", async () => {
-      const response = await request
-        .delete(`/api/v1/authors/${authorToFavorite.id}/favorite`)
-        .set("Authorization", `Bearer ${testUser.token}`);
-
-      expect(response.status).toBe(StatusCodes.OK);
-      expect(response.body.message).toContain(
-        "Author removed from favorites successfully"
-      );
-
-      const userDb = await prisma.user.findUnique({
-        where: { id: testUser.id },
-        select: { favoriteAuthorIds: true },
+    it("should fail to register with invalid email format", async () => {
+      const response = await request.post("/api/v1/auth/register").send({
+        name: "Invalid Email User",
+        email: "invalid-email",
+        password: "Password123!",
       });
-      expect(userDb?.favoriteAuthorIds).not.toContain(authorToFavorite.id);
-    });
-
-    it("should FAIL with 400 if trying to remove an author not in favorites", async () => {
-      const response = await request
-        .delete(`/api/v1/authors/${anotherAuthorToList.id}/favorite`)
-        .set("Authorization", `Bearer ${testUser.token}`);
 
       expect(response.status).toBe(StatusCodes.BAD_REQUEST);
-      expect(response.body.message).toBe(
-        ErrorMessages.ITEM_NOT_IN_FAVORITES("Author")
+      expect(response.body.message).toBe(ErrorMessages.VALIDATION_ERROR);
+      expect(response.body.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: "body.email",
+            message: "Invalid email address format.",
+          }),
+        ])
       );
     });
 
-    it("should FAIL with 404 if author to remove does not exist", async () => {
-      const nonExistentAuthorId = faker.database.mongodbObjectId();
+    it("should fail to register with a password that is too short", async () => {
+      const uniqueEmail = faker.internet.email({
+        firstName: "ShortPass",
+        lastName: `User${Date.now()}`,
+      });
       const response = await request
-        .delete(`/api/v1/authors/${nonExistentAuthorId}/favorite`)
-        .set("Authorization", `Bearer ${testUser.token}`);
-      expect(response.status).toBe(StatusCodes.NOT_FOUND);
+        .post("/api/v1/auth/register")
+        .send({ name: "Short Pass", email: uniqueEmail, password: "123" });
+
+      expect(response.status).toBe(StatusCodes.BAD_REQUEST);
+      expect(response.body.message).toBe(ErrorMessages.VALIDATION_ERROR);
+      expect(response.body.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: "body.password",
+            message: ErrorMessages.PASSWORD_TOO_SHORT(8),
+          }),
+        ])
+      );
     });
 
-    it("should FAIL if not authenticated", async () => {
-      const response = await request.delete(
-        `/api/v1/authors/${authorToFavorite.id}/favorite`
+    it("should fail to register if password does not meet complexity requirements (e.g., missing uppercase)", async () => {
+      const uniqueEmail = faker.internet.email({
+        firstName: "WeakPass",
+        lastName: `User${Date.now()}`,
+      });
+      const response = await request.post("/api/v1/auth/register").send({
+        name: "Weak Pass",
+        email: uniqueEmail,
+        password: "password123!",
+      });
+
+      expect(response.status).toBe(StatusCodes.BAD_REQUEST);
+      expect(response.body.message).toBe(ErrorMessages.VALIDATION_ERROR);
+      expect(response.body.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: "body.password",
+            message:
+              "Password must include at least one uppercase letter (A-Z).",
+          }),
+        ])
       );
-      expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
+    });
+
+    it("should fail to register if required fields are missing (e.g., email)", async () => {
+      const response = await request
+        .post("/api/v1/auth/register")
+        .send({ name: "Missing Email", password: "Password123!" });
+
+      expect(response.status).toBe(StatusCodes.BAD_REQUEST);
+      expect(response.body.message).toBe(ErrorMessages.VALIDATION_ERROR);
+      expect(response.body.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: "body.email",
+            message: "Email is required.",
+          }),
+        ])
+      );
+    });
+
+    it("should fail to register if required fields are missing (e.g., password)", async () => {
+      const uniqueEmail = faker.internet.email({
+        firstName: "MissingPass",
+        lastName: `User${Date.now()}`,
+      });
+      const response = await request
+        .post("/api/v1/auth/register")
+        .send({ name: "Missing Password", email: uniqueEmail });
+
+      expect(response.status).toBe(StatusCodes.BAD_REQUEST);
+      expect(response.body.message).toBe(ErrorMessages.VALIDATION_ERROR);
+      expect(response.body.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: "body.password",
+            message: "Password is required.",
+          }),
+        ])
+      );
     });
   });
 
-  describe("GET /api/v1/favorites/authors", () => {
-    let favoritedAuthor1: Author;
-    let favoritedAuthor2: Author;
+  describe("POST /api/v1/auth/login", () => {
+    let loginTestUser: TestUser;
+    const loginTestPassword = "PasswordForLogin123!";
 
     beforeEach(async () => {
-      favoritedAuthor1 = authorToFavorite;
-      favoritedAuthor2 = anotherAuthorToList;
-
-      await request
-        .post(`/api/v1/authors/${favoritedAuthor1.id}/favorite`)
-        .set("Authorization", `Bearer ${testUser.token}`);
-      await request
-        .post(`/api/v1/authors/${favoritedAuthor2.id}/favorite`)
-        .set("Authorization", `Bearer ${testUser.token}`);
+      loginTestUser = await createUniqueTestUser({
+        name: `LoginTestUser_${Date.now()}`,
+        password: loginTestPassword,
+      });
+      createdUserIds.push(loginTestUser.id);
     });
 
-    it("should retrieve a paginated list of the user's favorite authors", async () => {
+    it("should login an existing user successfully and return core user fields + token", async () => {
       const response = await request
-        .get("/api/v1/favorites/authors?page=1&limit=1")
-        .set("Authorization", `Bearer ${testUser.token}`);
+        .post("/api/v1/auth/login")
+        .send({ email: loginTestUser.email, password: loginTestPassword });
 
       expect(response.status).toBe(StatusCodes.OK);
       expect(response.body.status).toBe("success");
-      expect(response.body.data).toBeInstanceOf(Array);
-      expect(response.body.data.length).toBe(1);
-      expect(response.body.meta.totalItems).toBe(2);
-      expect(response.body.meta.currentPage).toBe(1);
-      expect(response.body.meta.itemsPerPage).toBe(1);
-      expect(response.body.meta.totalPages).toBe(2);
+      expect(response.body.data.user).toBeDefined();
+      expect(response.body.data.token).toBeDefined();
+      expect(response.body.data.user.id).toBe(loginTestUser.id);
+      expect(response.body.data.user.email).toBe(
+        loginTestUser.email.toLowerCase()
+      );
+      expect(response.body.data.user.password).toBeUndefined();
     });
 
-    it("should return an empty list if user has no favorites", async () => {
-      await request
-        .delete(`/api/v1/authors/${favoritedAuthor1.id}/favorite`)
-        .set("Authorization", `Bearer ${testUser.token}`);
-      await request
-        .delete(`/api/v1/authors/${favoritedAuthor2.id}/favorite`)
-        .set("Authorization", `Bearer ${testUser.token}`);
-
+    it("should fail to login with an incorrect password", async () => {
       const response = await request
-        .get("/api/v1/favorites/authors")
-        .set("Authorization", `Bearer ${testUser.token}`);
+        .post("/api/v1/auth/login")
+        .send({ email: loginTestUser.email, password: "WrongPassword!" });
 
-      expect(response.status).toBe(StatusCodes.OK);
-      expect(response.body.data).toEqual([]);
-      expect(response.body.meta.totalItems).toBe(0);
+      expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
+      expect(response.body.message).toBe(ErrorMessages.INVALID_CREDENTIALS);
     });
 
-    it("should FAIL if not authenticated", async () => {
-      const response = await request.get("/api/v1/favorites/authors");
+    it("should fail to login with a non-existent email", async () => {
+      const nonExistentEmail = faker.internet.email({
+        firstName: "NonExistentLogin",
+        lastName: `User${Date.now()}`,
+      });
+      const response = await request
+        .post("/api/v1/auth/login")
+        .send({ email: nonExistentEmail, password: "Password123!" });
+
       expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
+      expect(response.body.message).toBe(ErrorMessages.INVALID_CREDENTIALS);
+    });
+
+    it("should fail to login if password is not provided", async () => {
+      const response = await request
+        .post("/api/v1/auth/login")
+        .send({ email: loginTestUser.email });
+
+      expect(response.status).toBe(StatusCodes.BAD_REQUEST);
+      expect(response.body.message).toBe(ErrorMessages.VALIDATION_ERROR);
+      expect(response.body.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: "body.password",
+            message: "Password is required.",
+          }),
+        ])
+      );
+    });
+
+    it("should fail to login if email is not provided", async () => {
+      const response = await request
+        .post("/api/v1/auth/login")
+        .send({ password: loginTestPassword });
+
+      expect(response.status).toBe(StatusCodes.BAD_REQUEST);
+      expect(response.body.message).toBe(ErrorMessages.VALIDATION_ERROR);
+      expect(response.body.errors).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: "body.email",
+            message: "Email is required.",
+          }),
+        ])
+      );
     });
   });
 
-  describe("isFavorite flag in GET /api/v1/authors and GET /api/v1/authors/:id", () => {
-    let authorCreatedByTestUser: Author;
-    let authorCreatedByAnotherUserAndFavoritedByTestUser: Author;
-    let authorCreatedByAnotherUserNotFavoritedByTestUser: Author;
+  describe("GET /api/v1/auth/me", () => {
+    let meTestUser: TestUser;
 
     beforeEach(async () => {
-      authorCreatedByTestUser = await createUniqueAuthorViaApi(testUser.token, {
-        name: "MyOwnAuthorForFavCheck",
+      meTestUser = await createUniqueTestUser({
+        name: `MeTestUser_${Date.now()}`,
       });
-      authorCreatedByAnotherUserAndFavoritedByTestUser =
-        await createUniqueAuthorViaApi(anotherUser.token, {
-          name: "AnotherUserAuthorFavorited",
-        });
-      authorCreatedByAnotherUserNotFavoritedByTestUser =
-        await createUniqueAuthorViaApi(anotherUser.token, {
-          name: "AnotherUserAuthorNotFavorited",
-        });
-      authorIdsToClean.push(
-        authorCreatedByTestUser.id,
-        authorCreatedByAnotherUserAndFavoritedByTestUser.id,
-        authorCreatedByAnotherUserNotFavoritedByTestUser.id
-      );
-
-      await request
-        .post(`/api/v1/authors/${authorCreatedByTestUser.id}/favorite`)
-        .set("Authorization", `Bearer ${testUser.token}`);
-      await request
-        .post(
-          `/api/v1/authors/${authorCreatedByAnotherUserAndFavoritedByTestUser.id}/favorite`
-        )
-        .set("Authorization", `Bearer ${testUser.token}`);
+      createdUserIds.push(meTestUser.id);
     });
 
-    it("GET /api/v1/authors should show 'isFavorite' for authors created by the user", async () => {
+    it("should retrieve current user details with a valid token", async () => {
       const response = await request
-        .get("/api/v1/authors")
-        .set("Authorization", `Bearer ${testUser.token}`);
+        .get("/api/v1/auth/me")
+        .set("Authorization", `Bearer ${meTestUser.token}`);
 
       expect(response.status).toBe(StatusCodes.OK);
-      const authors = response.body.data as (Author & {
-        isFavorite?: boolean;
-      })[];
+      expect(response.body.status).toBe("success");
+      expect(response.body.data.id).toBe(meTestUser.id);
+      expect(response.body.data.email).toBe(meTestUser.email.toLowerCase());
+      expect(response.body.data.name).toBe(meTestUser.name);
+      expect(response.body.data.password).toBeUndefined();
+    });
 
-      const myAuthor = authors.find((a) => a.id === authorCreatedByTestUser.id);
-      expect(myAuthor).toBeDefined();
-      expect(myAuthor?.isFavorite).toBe(true);
+    it("should fail if no token is provided", async () => {
+      const response = await request.get("/api/v1/auth/me");
 
+      expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
+      expect(response.body.message).toBe(ErrorMessages.UNAUTHENTICATED);
+    });
+
+    it("should fail if token is invalid or malformed (e.g., not a JWT)", async () => {
+      const response = await request
+        .get("/api/v1/auth/me")
+        .set("Authorization", "Bearer an-invalid-or-malformed-token");
+
+      expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
+      expect(response.body.message).toBe(ErrorMessages.TOKEN_INVALID);
+    });
+
+    it("should fail if token is correctly formatted JWT but signed with wrong secret or expired", async () => {
+      const bogusJwt =
+        "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+      const response = await request
+        .get("/api/v1/auth/me")
+        .set("Authorization", bogusJwt);
+
+      expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
+      expect(response.body.message).toBe(ErrorMessages.TOKEN_INVALID);
+    });
+
+    it("should fail if token is valid but the user has been deleted from DB", async () => {
+      const validTokenFromDeletedUser = meTestUser.token;
+
+      const userInDbBeforeDelete = await prisma.user.findUnique({
+        where: { id: meTestUser.id },
+      });
       expect(
-        authors.find(
-          (a) => a.id === authorCreatedByAnotherUserAndFavoritedByTestUser.id
-        )
-      ).toBeUndefined();
-    });
+        userInDbBeforeDelete,
+        `User ${meTestUser.id} (email: ${meTestUser.email}) must exist before manual deletion`
+      ).not.toBeNull();
 
-    it("GET /api/v1/authors/:id should show 'isFavorite' for an author owned by the user", async () => {
+      await prisma.user.delete({ where: { id: meTestUser.id } });
+      const indexToRemove = createdUserIds.indexOf(meTestUser.id);
+      if (indexToRemove > -1) {
+        createdUserIds.splice(indexToRemove, 1);
+      }
+
+      const userInDbAfterDelete = await prisma.user.findUnique({
+        where: { id: meTestUser.id },
+      });
+      expect(
+        userInDbAfterDelete,
+        `User ${meTestUser.id} must NOT exist after manual deletion`
+      ).toBeNull();
+
       const response = await request
-        .get(`/api/v1/authors/${authorCreatedByTestUser.id}`)
-        .set("Authorization", `Bearer ${testUser.token}`);
+        .get("/api/v1/auth/me")
+        .set("Authorization", `Bearer ${validTokenFromDeletedUser}`);
 
-      expect(response.status).toBe(StatusCodes.OK);
-      expect(response.body.data.id).toBe(authorCreatedByTestUser.id);
-      expect(response.body.data.isFavorite).toBe(true);
-    });
-
-    it("GET /api/v1/authors/:id should return 403 for non-owned author, even if favorited", async () => {
-      const response = await request
-        .get(
-          `/api/v1/authors/${authorCreatedByAnotherUserAndFavoritedByTestUser.id}`
-        )
-        .set("Authorization", `Bearer ${testUser.token}`);
-
-      expect(response.status).toBe(StatusCodes.FORBIDDEN);
-      expect(response.body.message).toBe(ErrorMessages.UNAUTHORIZED_ACTION);
-    });
-
-    it("GET /api/v1/authors/:id for owned but unfavorited author should show isFavorite: false", async () => {
-      const myUnfavoritedAuthor = await createUniqueAuthorViaApi(
-        testUser.token,
-        { name: "MyOwnUnfavorited" }
+      expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
+      expect(response.body.message).toBe(
+        ErrorMessages.USER_FOR_TOKEN_NOT_FOUND
       );
-      authorIdsToClean.push(myUnfavoritedAuthor.id);
-
-      const response = await request
-        .get(`/api/v1/authors/${myUnfavoritedAuthor.id}`)
-        .set("Authorization", `Bearer ${testUser.token}`);
-
-      expect(response.status).toBe(StatusCodes.OK);
-      expect(response.body.data.id).toBe(myUnfavoritedAuthor.id);
-      expect(response.body.data.isFavorite).toBe(false);
     });
   });
 });

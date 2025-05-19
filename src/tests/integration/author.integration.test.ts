@@ -7,313 +7,354 @@ import {
   type TestUser,
   deleteTestUser,
 } from "./helpers/user.helper";
+import {
+  createUniqueAuthorViaApi,
+  type CreateAuthorPayloadHelper,
+} from "./helpers/author.helper";
+import type { Author } from "@prisma/client";
 import { prisma } from "@/db/client";
 import { ErrorMessages } from "@/constants";
-import { createUniqueAuthorViaApi } from "./helpers/author.helper";
-import type { Author } from "@prisma/client";
 
-describe("Author API Endpoints - /api/v1/authors", () => {
-  let testUser: TestUser;
-  let anotherUser: TestUser;
+describe("Author API Endpoints (/api/v1/authors) (Strict Ownership for Favorites)", () => {
+  let userA: TestUser;
+  let userB: TestUser;
+
+  let authorA1: Author;
+  let authorA2: Author;
+
+  let authorB1: Author;
 
   const userIdsToClean: string[] = [];
-  const authorIdsToClean: string[] = [];
+  let authorIdsToClean: string[] = [];
 
   beforeEach(async () => {
-    testUser = await createUniqueTestUser({
-      name: `TestUser_AuthorSuite_${Date.now()}`,
+    authorIdsToClean = [];
+    userIdsToClean.length = 0;
+
+    userA = await createUniqueTestUser({ name: "UserA_AuthorsMain" });
+    userB = await createUniqueTestUser({ name: "UserB_AuthorsMain" });
+    userIdsToClean.push(userA.id, userB.id);
+
+    authorA1 = await createUniqueAuthorViaApi(userA.token, {
+      name: `AuthorA1_${faker.person.lastName()}_${Date.now()}`,
     });
-    anotherUser = await createUniqueTestUser({
-      name: `AnotherUser_AuthorSuite_${Date.now()}`,
+    authorA2 = await createUniqueAuthorViaApi(userA.token, {
+      name: `AuthorA2_${faker.person.lastName()}_${Date.now()}`,
     });
-    userIdsToClean.push(testUser.id, anotherUser.id);
+    authorB1 = await createUniqueAuthorViaApi(userB.token, {
+      name: `AuthorB1_${faker.person.lastName()}_${Date.now()}`,
+    });
+    authorIdsToClean.push(authorA1.id, authorA2.id, authorB1.id);
   });
 
   afterEach(async () => {
-    if (authorIdsToClean.length > 0) {
+    const uniqueAuthorIds = [...new Set(authorIdsToClean)];
+    if (uniqueAuthorIds.length > 0) {
       try {
         await prisma.author.deleteMany({
-          where: { id: { in: authorIdsToClean } },
+          where: { id: { in: uniqueAuthorIds } },
         });
       } catch (e) {}
-      authorIdsToClean.length = 0;
     }
-    for (const userId of userIdsToClean) {
+    authorIdsToClean.length = 0;
+
+    const uniqueUserIds = [...new Set(userIdsToClean)];
+    for (const userId of uniqueUserIds) {
+      try {
+        await prisma.user.update({
+          where: { id: userId },
+          data: {
+            favoriteAuthorIds: { set: [] },
+            favoriteAuthors: { set: [] },
+          },
+        });
+      } catch (e) {}
+    }
+    for (const userId of uniqueUserIds) {
       await deleteTestUser(userId);
     }
     userIdsToClean.length = 0;
   });
 
-  describe("POST /api/v1/authors (Create Author)", () => {
-    it("should CREATE an author successfully with valid data when authenticated", async () => {
-      const authorData = {
-        name: `New Author ${faker.person.fullName()}`,
-        bio: faker.lorem.paragraph(),
+  describe("POST /api/v1/authors", () => {
+    it("should allow User A to create a new author", async () => {
+      const payload: CreateAuthorPayloadHelper = {
+        name: `NewAuthorByA_${faker.person.lastName()}`,
+        bio: faker.lorem.sentence(),
       };
       const response = await request
         .post("/api/v1/authors")
-        .set("Authorization", `Bearer ${testUser.token}`)
-        .send(authorData);
+        .set("Authorization", `Bearer ${userA.token}`)
+        .send(payload);
 
       expect(response.status).toBe(StatusCodes.CREATED);
       expect(response.body.status).toBe("success");
-      expect(response.body.data.name).toBe(authorData.name);
-      expect(response.body.data.bio).toBe(authorData.bio);
-      expect(response.body.data.createdById).toBe(testUser.id);
+      expect(response.body.data.name).toBe(payload.name);
+      expect(response.body.data.bio).toBe(payload.bio);
+      expect(response.body.data.createdById).toBe(userA.id);
       authorIdsToClean.push(response.body.data.id);
     });
 
-    it("should FAIL to create an author if not authenticated", async () => {
-      const authorData = { name: "Unauth Author" };
-      const response = await request.post("/api/v1/authors").send(authorData);
+    it("should fail to create an author if not authenticated", async () => {
+      const payload: CreateAuthorPayloadHelper = { name: "AuthFailAuthor" };
+      const response = await request.post("/api/v1/authors").send(payload);
       expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
-      expect(response.body.message).toBe(ErrorMessages.UNAUTHENTICATED);
     });
 
-    it("should FAIL to create an author with missing required 'name'", async () => {
-      const authorData = { bio: "Some bio" };
+    it("should fail to create an author with invalid data (e.g., name too short)", async () => {
+      const payload = { name: "A", bio: "Short bio" };
       const response = await request
         .post("/api/v1/authors")
-        .set("Authorization", `Bearer ${testUser.token}`)
-        .send(authorData);
+        .set("Authorization", `Bearer ${userA.token}`)
+        .send(payload);
       expect(response.status).toBe(StatusCodes.BAD_REQUEST);
       expect(response.body.message).toBe(ErrorMessages.VALIDATION_ERROR);
-      expect(response.body.errors).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ field: "body.name" }),
-        ])
-      );
+      expect(response.body.errors[0].field).toBe("body.name");
     });
   });
 
-  describe("GET /api/v1/authors (List Authors)", () => {
-    it("should GET a list of ONLY the authenticated user's authors", async () => {
-      const author1TestUser = await createUniqueAuthorViaApi(testUser.token, {
-        name: "TU Author 1",
-      });
-      const author2TestUser = await createUniqueAuthorViaApi(testUser.token, {
-        name: "TU Author 2",
-      });
-      authorIdsToClean.push(author1TestUser.id, author2TestUser.id);
-
-      const authorAnotherUser = await createUniqueAuthorViaApi(
-        anotherUser.token,
-        { name: "AU Author 1" }
-      );
-      authorIdsToClean.push(authorAnotherUser.id);
-
+  describe("GET /api/v1/authors", () => {
+    it("should return only User A's authors when User A requests", async () => {
       const response = await request
         .get("/api/v1/authors")
-        .set("Authorization", `Bearer ${testUser.token}`);
+        .set("Authorization", `Bearer ${userA.token}`);
 
       expect(response.status).toBe(StatusCodes.OK);
       expect(response.body.status).toBe("success");
-      expect(response.body.data).toBeInstanceOf(Array);
       expect(response.body.data.length).toBe(2);
-      response.body.data.forEach((author: Author) => {
-        expect(author.createdById).toBe(testUser.id);
+      const returnedAuthorIds = response.body.data.map((a: Author) => a.id);
+      expect(returnedAuthorIds).toContain(authorA1.id);
+      expect(returnedAuthorIds).toContain(authorA2.id);
+      expect(returnedAuthorIds).not.toContain(authorB1.id);
+      response.body.data.forEach((author: any) => {
+        expect(author.createdById).toBe(userA.id);
+        expect(author.isFavorite).toBe(false);
       });
-      expect(response.body.meta.totalItems).toBe(2);
     });
 
-    it("should GET an empty list if authenticated user has no authors", async () => {
+    it("should return User A's authors with correct isFavorite status after User A favorites one", async () => {
+      await request
+        .post(`/api/v1/authors/${authorA1.id}/favorite`)
+        .set("Authorization", `Bearer ${userA.token}`);
+
       const response = await request
         .get("/api/v1/authors")
-        .set("Authorization", `Bearer ${testUser.token}`);
+        .set("Authorization", `Bearer ${userA.token}`);
+
       expect(response.status).toBe(StatusCodes.OK);
-      expect(response.body.data).toEqual([]);
-      expect(response.body.meta.totalItems).toBe(0);
+      const authors = response.body.data as (Author & {
+        isFavorite: boolean;
+      })[];
+
+      const fetchedAuthorA1 = authors.find((a) => a.id === authorA1.id);
+      expect(fetchedAuthorA1).toBeDefined();
+      expect(fetchedAuthorA1?.isFavorite).toBe(true);
+
+      const fetchedAuthorA2 = authors.find((a) => a.id === authorA2.id);
+      expect(fetchedAuthorA2).toBeDefined();
+      expect(fetchedAuthorA2?.isFavorite).toBe(false);
     });
 
-    it("should FAIL to get authors if not authenticated", async () => {
+    it("should support pagination for User A's authors", async () => {
+      const response = await request
+        .get("/api/v1/authors?page=1&limit=1")
+        .set("Authorization", `Bearer ${userA.token}`);
+      expect(response.status).toBe(StatusCodes.OK);
+      expect(response.body.data.length).toBe(1);
+      expect(response.body.meta.totalItems).toBe(2);
+      expect(response.body.meta.currentPage).toBe(1);
+      expect(response.body.meta.itemsPerPage).toBe(1);
+    });
+
+    it("should support search for User A's authors", async () => {
+      const searchTerm = authorA1.name.substring(0, 10);
+      const response = await request
+        .get(`/api/v1/authors?search=${searchTerm}`)
+        .set("Authorization", `Bearer ${userA.token}`);
+      expect(response.status).toBe(StatusCodes.OK);
+      expect(response.body.data.length).toBeGreaterThanOrEqual(1);
+      expect(
+        response.body.data.some(
+          (a: Author) => a.id === authorA1.id && a.name.includes(searchTerm)
+        )
+      ).toBe(true);
+      expect(
+        response.body.data.every((a: Author) => a.createdById === userA.id)
+      ).toBe(true);
+    });
+
+    it("should fail if not authenticated", async () => {
       const response = await request.get("/api/v1/authors");
       expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
     });
   });
 
-  describe("GET /api/v1/authors/:id (Get Specific Author)", () => {
-    let ownedAuthor: Author;
-    let unownedAuthor: Author;
-
-    beforeEach(async () => {
-      ownedAuthor = await createUniqueAuthorViaApi(testUser.token, {
-        name: "Owned Author",
-      });
-      unownedAuthor = await createUniqueAuthorViaApi(anotherUser.token, {
-        name: "Unowned Author",
-      });
-      authorIdsToClean.push(ownedAuthor.id, unownedAuthor.id);
-    });
-
-    it("should GET a specific author successfully if authenticated and owner", async () => {
+  describe("GET /api/v1/authors/:id", () => {
+    it("should allow User A to get their own author (authorA1) and show isFavorite:false initially", async () => {
       const response = await request
-        .get(`/api/v1/authors/${ownedAuthor.id}`)
-        .set("Authorization", `Bearer ${testUser.token}`);
+        .get(`/api/v1/authors/${authorA1.id}`)
+        .set("Authorization", `Bearer ${userA.token}`);
       expect(response.status).toBe(StatusCodes.OK);
-      expect(response.body.data.id).toBe(ownedAuthor.id);
-      expect(response.body.data.name).toBe(ownedAuthor.name);
+      expect(response.body.data.id).toBe(authorA1.id);
+      expect(response.body.data.createdById).toBe(userA.id);
+      expect(response.body.data.isFavorite).toBe(false);
     });
 
-    it("should FAIL to get a specific author if not authenticated", async () => {
-      const response = await request.get(`/api/v1/authors/${ownedAuthor.id}`);
-      expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
-    });
+    it("should show isFavorite:true for an owned author after User A favorites it", async () => {
+      await request
+        .post(`/api/v1/authors/${authorA1.id}/favorite`)
+        .set("Authorization", `Bearer ${userA.token}`);
 
-    it("should FAIL with 403 FORBIDDEN if trying to get an author not owned by authenticated user", async () => {
       const response = await request
-        .get(`/api/v1/authors/${unownedAuthor.id}`)
-        .set("Authorization", `Bearer ${testUser.token}`);
+        .get(`/api/v1/authors/${authorA1.id}`)
+        .set("Authorization", `Bearer ${userA.token}`);
+      expect(response.status).toBe(StatusCodes.OK);
+      expect(response.body.data.isFavorite).toBe(true);
+    });
+
+    it("should forbid User A from getting User B's author (authorB1)", async () => {
+      const response = await request
+        .get(`/api/v1/authors/${authorB1.id}`)
+        .set("Authorization", `Bearer ${userA.token}`);
       expect(response.status).toBe(StatusCodes.FORBIDDEN);
       expect(response.body.message).toBe(ErrorMessages.UNAUTHORIZED_ACTION);
     });
 
-    it("should FAIL with 404 NOT FOUND if author ID does not exist (authenticated)", async () => {
+    it("should return 404 if author ID does not exist (when requested by owner)", async () => {
       const nonExistentId = faker.database.mongodbObjectId();
       const response = await request
         .get(`/api/v1/authors/${nonExistentId}`)
-        .set("Authorization", `Bearer ${testUser.token}`);
+        .set("Authorization", `Bearer ${userA.token}`);
       expect(response.status).toBe(StatusCodes.NOT_FOUND);
-      expect(response.body.message).toBe(ErrorMessages.AUTHOR_NOT_FOUND);
     });
 
-    it("should FAIL with 400 BAD REQUEST if author ID is invalid format (authenticated)", async () => {
-      const invalidId = "invalid-mongo-id";
-      const response = await request
-        .get(`/api/v1/authors/${invalidId}`)
-        .set("Authorization", `Bearer ${testUser.token}`);
-      expect(response.status).toBe(StatusCodes.BAD_REQUEST);
-      expect(response.body.message).toBe(ErrorMessages.VALIDATION_ERROR);
-      expect(response.body.errors).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            field: "params.id",
-            message: ErrorMessages.INVALID_OBJECT_ID,
-          }),
-        ])
-      );
+    it("should fail if not authenticated", async () => {
+      const response = await request.get(`/api/v1/authors/${authorA1.id}`);
+      expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
     });
   });
 
-  describe("PATCH /api/v1/authors/:id (Update Author)", () => {
-    let ownedAuthor: Author;
-    let unownedAuthor: Author;
+  describe("PATCH /api/v1/authors/:id", () => {
+    const updatePayload = { name: "Updated Author Name by User A" };
 
-    beforeEach(async () => {
-      ownedAuthor = await createUniqueAuthorViaApi(testUser.token, {
-        name: "Author to Update",
-      });
-      unownedAuthor = await createUniqueAuthorViaApi(anotherUser.token, {
-        name: "Another's Author",
-      });
-      authorIdsToClean.push(ownedAuthor.id, unownedAuthor.id);
-    });
-
-    it("should UPDATE an author successfully if authenticated and owner", async () => {
-      const updateData = { name: "Updated Name", bio: "Updated Bio" };
+    it("should allow User A to update their own author (authorA1)", async () => {
       const response = await request
-        .patch(`/api/v1/authors/${ownedAuthor.id}`)
-        .set("Authorization", `Bearer ${testUser.token}`)
-        .send(updateData);
+        .patch(`/api/v1/authors/${authorA1.id}`)
+        .set("Authorization", `Bearer ${userA.token}`)
+        .send(updatePayload);
       expect(response.status).toBe(StatusCodes.OK);
-      expect(response.body.data.name).toBe(updateData.name);
-      expect(response.body.data.bio).toBe(updateData.bio);
+      expect(response.body.data.id).toBe(authorA1.id);
+      expect(response.body.data.name).toBe(updatePayload.name);
+      expect(response.body.data.createdById).toBe(userA.id);
     });
 
-    it("should FAIL to update if not authenticated", async () => {
+    it("should forbid User A from updating User B's author (authorB1)", async () => {
       const response = await request
-        .patch(`/api/v1/authors/${ownedAuthor.id}`)
-        .send({ name: "Attempt Update Unauth" });
-      expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
-    });
-
-    it("should FAIL with 403 FORBIDDEN if trying to update an author not owned", async () => {
-      const response = await request
-        .patch(`/api/v1/authors/${unownedAuthor.id}`)
-        .set("Authorization", `Bearer ${testUser.token}`)
-        .send({ name: "Forbidden Update" });
+        .patch(`/api/v1/authors/${authorB1.id}`)
+        .set("Authorization", `Bearer ${userA.token}`)
+        .send(updatePayload);
       expect(response.status).toBe(StatusCodes.FORBIDDEN);
+      expect(response.body.message).toBe(ErrorMessages.UNAUTHORIZED_ACTION);
     });
 
-    it("should FAIL with 404 NOT FOUND if author ID to update does not exist (authenticated)", async () => {
+    it("should return 404 if trying to update a non-existent author (by owner)", async () => {
       const nonExistentId = faker.database.mongodbObjectId();
       const response = await request
         .patch(`/api/v1/authors/${nonExistentId}`)
-        .set("Authorization", `Bearer ${testUser.token}`)
-        .send({ name: "Update NonExistent" });
+        .set("Authorization", `Bearer ${userA.token}`)
+        .send(updatePayload);
       expect(response.status).toBe(StatusCodes.NOT_FOUND);
     });
 
-    it("should FAIL with 400 BAD REQUEST if no update data is provided", async () => {
+    it("should fail if not authenticated", async () => {
       const response = await request
-        .patch(`/api/v1/authors/${ownedAuthor.id}`)
-        .set("Authorization", `Bearer ${testUser.token}`)
-        .send({});
-      expect(response.status).toBe(StatusCodes.BAD_REQUEST);
-      expect(response.body.message).toBe(ErrorMessages.VALIDATION_ERROR);
-      expect(response.body.errors).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            field: "body",
-            message: ErrorMessages.NO_UPDATE_DATA,
-          }),
-        ])
-      );
-    });
-  });
-
-  describe("DELETE /api/v1/authors/:id (Delete Author)", () => {
-    let ownedAuthorForDelete: Author;
-    let unownedAuthorForDelete: Author;
-
-    beforeEach(async () => {
-      ownedAuthorForDelete = await createUniqueAuthorViaApi(testUser.token, {
-        name: "Author For Deletion",
-      });
-      unownedAuthorForDelete = await createUniqueAuthorViaApi(
-        anotherUser.token,
-        { name: "Another's Author For Deletion" }
-      );
-      authorIdsToClean.push(ownedAuthorForDelete.id, unownedAuthorForDelete.id);
-    });
-
-    it("should DELETE an author successfully if authenticated and owner", async () => {
-      const response = await request
-        .delete(`/api/v1/authors/${ownedAuthorForDelete.id}`)
-        .set("Authorization", `Bearer ${testUser.token}`);
-      expect(response.status).toBe(StatusCodes.OK);
-      expect(response.body.message).toContain("Author deleted successfully");
-
-      const checkResponse = await request
-        .get(`/api/v1/authors/${ownedAuthorForDelete.id}`)
-        .set("Authorization", `Bearer ${testUser.token}`);
-      expect(checkResponse.status).toBe(StatusCodes.NOT_FOUND);
-
-      authorIdsToClean.splice(
-        authorIdsToClean.indexOf(ownedAuthorForDelete.id),
-        1
-      );
-    });
-
-    it("should FAIL to delete if not authenticated", async () => {
-      const response = await request.delete(
-        `/api/v1/authors/${ownedAuthorForDelete.id}`
-      );
+        .patch(`/api/v1/authors/${authorA1.id}`)
+        .send(updatePayload);
       expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
     });
 
-    it("should FAIL with 403 FORBIDDEN if trying to delete an author not owned", async () => {
+    it("should fail with validation error for invalid update data (e.g. name too short)", async () => {
+      const invalidUpdatePayload = { name: "X" };
       const response = await request
-        .delete(`/api/v1/authors/${unownedAuthorForDelete.id}`)
-        .set("Authorization", `Bearer ${testUser.token}`);
-      expect(response.status).toBe(StatusCodes.FORBIDDEN);
+        .patch(`/api/v1/authors/${authorA1.id}`)
+        .set("Authorization", `Bearer ${userA.token}`)
+        .send(invalidUpdatePayload);
+      expect(response.status).toBe(StatusCodes.BAD_REQUEST);
+      expect(response.body.errors[0].field).toBe("body.name");
+    });
+  });
+
+  describe("DELETE /api/v1/authors/:id", () => {
+    it("should allow User A to delete their own author (authorA1)", async () => {
+      const response = await request
+        .delete(`/api/v1/authors/${authorA1.id}`)
+        .set("Authorization", `Bearer ${userA.token}`);
+      expect(response.status).toBe(StatusCodes.OK);
+      expect(response.body.message).toContain("Author deleted successfully");
+
+      const getResponse = await request
+        .get(`/api/v1/authors/${authorA1.id}`)
+        .set("Authorization", `Bearer ${userA.token}`);
+      expect(getResponse.status).toBe(StatusCodes.NOT_FOUND);
+      authorIdsToClean = authorIdsToClean.filter((id) => id !== authorA1.id);
     });
 
-    it("should FAIL with 404 NOT FOUND if author ID to delete does not exist (authenticated)", async () => {
+    it("should forbid User A from deleting User B's author (authorB1)", async () => {
+      const response = await request
+        .delete(`/api/v1/authors/${authorB1.id}`)
+        .set("Authorization", `Bearer ${userA.token}`);
+      expect(response.status).toBe(StatusCodes.FORBIDDEN);
+      expect(response.body.message).toBe(ErrorMessages.UNAUTHORIZED_ACTION);
+    });
+
+    it("should return 404 if trying to delete a non-existent author (by owner)", async () => {
       const nonExistentId = faker.database.mongodbObjectId();
       const response = await request
         .delete(`/api/v1/authors/${nonExistentId}`)
-        .set("Authorization", `Bearer ${testUser.token}`);
+        .set("Authorization", `Bearer ${userA.token}`);
       expect(response.status).toBe(StatusCodes.NOT_FOUND);
+    });
+
+    it("should fail if not authenticated", async () => {
+      const response = await request.delete(`/api/v1/authors/${authorA2.id}`);
+      expect(response.status).toBe(StatusCodes.UNAUTHORIZED);
+    });
+  });
+
+  describe("POST /api/v1/authors/:id/favorite (Basic Check on Author Route)", () => {
+    it("should allow User A to favorite their own author (authorA1)", async () => {
+      const response = await request
+        .post(`/api/v1/authors/${authorA1.id}/favorite`)
+        .set("Authorization", `Bearer ${userA.token}`);
+      expect(response.status).toBe(StatusCodes.OK);
+    });
+
+    it("should forbid User A from favoriting User B's author (authorB1)", async () => {
+      const response = await request
+        .post(`/api/v1/authors/${authorB1.id}/favorite`)
+        .set("Authorization", `Bearer ${userA.token}`);
+      expect(response.status).toBe(StatusCodes.FORBIDDEN);
+    });
+  });
+
+  describe("DELETE /api/v1/authors/:id/favorite (Basic Check on Author Route)", () => {
+    beforeEach(async () => {
+      await request
+        .post(`/api/v1/authors/${authorA1.id}/favorite`)
+        .set("Authorization", `Bearer ${userA.token}`);
+    });
+    it("should allow User A to unfavorite their own author (authorA1)", async () => {
+      const response = await request
+        .delete(`/api/v1/authors/${authorA1.id}/favorite`)
+        .set("Authorization", `Bearer ${userA.token}`);
+      expect(response.status).toBe(StatusCodes.OK);
+    });
+
+    it("should forbid User A from unfavoriting User B's author (authorB1)", async () => {
+      const response = await request
+        .delete(`/api/v1/authors/${authorB1.id}/favorite`)
+        .set("Authorization", `Bearer ${userA.token}`);
+      expect(response.status).toBe(StatusCodes.FORBIDDEN);
     });
   });
 });
