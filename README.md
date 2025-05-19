@@ -50,11 +50,10 @@ The API provides the following features:
     *   `DELETE /:id`: Delete a specific book (must be created by the user).
 *   **Favorites (`/api/v1/favorites`)**
     *   Users can mark authors and books *they have created* as favorites.
-    *   `POST /authors/:id/favorite` (via `/api/v1/authors/:id/favorite` route): Add an owned author to favorites.
-    *   `DELETE /authors/:id/favorite` (via `/api/v1/authors/:id/favorite` route): Remove an owned author from favorites.
-    *   `POST /books/:id/favorite` (via `/api/v1/books/:id/favorite` route): Add an owned book to favorites.
-    *   `DELETE /books/:id/favorite` (via `/api/v1/books/:id/favorite` route): Remove an owned book from favorites.
-    *   `GET /authors`: Get a paginated list of authors the user has favorited (currently limited to authors created by the user).
+    *   `POST /authors/:id/favorite`: Add an owned author to favorites.
+    *   `DELETE /authors/:id/favorite`: Remove an owned author from favorites.
+    *   `POST /books/:id/favorite`: Add an owned book to favorites.
+    *   `DELETE /books/:id/favorite`: Remove an owned book from favorites.
 
 ## Folder Structure
 
