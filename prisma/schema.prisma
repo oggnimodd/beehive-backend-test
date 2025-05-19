@@ -51,8 +51,8 @@ model Book {
   favoritedBy   User[]       @relation("UserFavoriteBooks", fields: [favoritedByIds], references: [id])
   favoritedByIds String[]    @db.ObjectId
 
-  // createdById   String    @db.ObjectId
-  // creator       User      @relation("UserCreatedBooks", fields: [createdById], references: [id])
+  createdById   String    @db.ObjectId
+  creator       User      @relation("UserCreatedBooks", fields: [createdById], references: [id])
 
   @@map("books")
 }
