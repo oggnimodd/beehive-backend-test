@@ -96,19 +96,17 @@ app.use(
   })
 );
 
-if (
-  process.env.NETLIFY_DEV === "true" ||
-  process.env.NETLIFY_LOCAL === "true"
-) {
+// On serverless platforms, we need to fix the JSON handler
+if (process.env.NETLIFY === "true" || process.env.NETLIFY_DEV === "true") {
   app.use((req, _res, next) => {
     if (
-      req.headers["content-type"] === "application/json" &&
+      req.headers["content-type"]?.includes("application/json") &&
       Buffer.isBuffer(req.body)
     ) {
       try {
         req.body = JSON.parse(req.body.toString("utf8"));
       } catch (e) {
-        console.error("Error parsing buffer body in Netlify dev/local", e);
+        console.error("Netlify: Error parsing buffer body", e);
       }
     }
     next();
