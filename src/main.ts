@@ -96,21 +96,31 @@ app.use(
   })
 );
 
+let isNetlifyDeployedEnvironment = false;
+if (process.env.API_BASE_URL) {
+  try {
+    const apiUrl = new URL(process.env.API_BASE_URL);
+    if (apiUrl.hostname.endsWith(".netlify.app")) {
+      isNetlifyDeployedEnvironment = true;
+    }
+  } catch (e) {
+    console.error("Error parsing API_BASE_URL for Netlify check:", e);
+  }
+}
+
 if (
   process.env.NETLIFY_DEV === "true" ||
   process.env.NETLIFY_LOCAL === "true" ||
-  process.env.NETLIFY === "true"
+  isNetlifyDeployedEnvironment
 ) {
   app.use((req, _res, next) => {
     if (
-      req.headers["content-type"] === "application/json" &&
+      req.headers["content-type"]?.includes("application/json") &&
       Buffer.isBuffer(req.body)
     ) {
       try {
         req.body = JSON.parse(req.body.toString("utf8"));
-      } catch (e) {
-        console.error("Error parsing buffer body in Netlify dev/local", e);
-      }
+      } catch (e) {}
     }
     next();
   });
