@@ -5,8 +5,10 @@
   "private": true,
   "scripts": {
     "dev": "bun run src/main.ts --watch",
+    "dev:netlify": "netlify dev",
     "prepare": "husky",
     "build": "bun run swagger:generate && tsc && bun run scripts/build.ts",
+    "build:netlify": "bun run swagger:generate && bun run db:generate",
     "start": "node dist/main.js",
     "pre-commit": "bunx lint-staged",
     "format": "biome format --write",
@@ -22,6 +24,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
+    "@netlify/functions": "^3.1.8",
     "@types/bun": "latest",
     "@types/cors": "^2.8.18",
     "@types/express": "^5.0.2",
@@ -52,6 +55,7 @@
     "pino-http": "^10.4.0",
     "pino-pretty": "^13.0.0",
     "prisma": "^6.8.2",
+    "serverless-http": "^3.2.0",
     "swagger-autogen": "^2.23.7",
     "zod": "^3.24.4",
     "zod-openapi": "^4.2.4"

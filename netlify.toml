@@ -1,0 +1,25 @@
+[build]
+  command = "bun run build:netlify"
+  functions = "netlify/functions"
+  publish = "public" 
+
+[functions]
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/api/v1/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/reference/*"
+  to = "/.netlify/functions/api/reference/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/health"
+  to = "/.netlify/functions/api/health"
+  status = 200
+  force = true
