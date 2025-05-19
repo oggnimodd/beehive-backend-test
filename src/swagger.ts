@@ -82,7 +82,7 @@ const documentBase = {
     version: "v1.0.0",
     title: "Beehive Backend API",
     description:
-      "API for managing books and authors, with JWT authentication. Built with Bun, Express, Prisma, and MongoDB.",
+      "API for managing books and authors, with JWT authentication. Built with Bun, Express, Prisma, and MongoDB. Note: Author management and favoriting are scoped to authors created by the authenticated user.",
     contact: {
       name: "Orenji The Developer",
     },
@@ -120,7 +120,16 @@ const documentBase = {
       description:
         "Endpoints for User Authentication (Registration, Login) and Profile Management",
     },
-    { name: "Authors", description: "Endpoints for managing Author resources" },
+    {
+      name: "Authors",
+      description:
+        "Endpoints for managing Author resources. All operations are scoped to authors created by the authenticated user.",
+    },
+    {
+      name: "Favorites",
+      description:
+        "Endpoints for managing the authenticated user's favorite authors. Users can only favorite authors they have created.",
+    },
   ],
 };
 
@@ -156,7 +165,7 @@ const document = createDocument({
             },
           },
           "400": {
-            description: "Bad Request",
+            description: "Bad Request (e.g., validation error, email exists)",
             content: { "application/json": { schema: ErrorResponseSchema } },
           },
           "500": {
@@ -192,11 +201,11 @@ const document = createDocument({
             },
           },
           "400": {
-            description: "Bad Request",
+            description: "Bad Request (e.g., validation error)",
             content: { "application/json": { schema: ErrorResponseSchema } },
           },
           "401": {
-            description: "Unauthorized",
+            description: "Unauthorized (e.g., invalid credentials)",
             content: { "application/json": { schema: ErrorResponseSchema } },
           },
           "500": {
@@ -224,7 +233,8 @@ const document = createDocument({
             },
           },
           "401": {
-            description: "Unauthorized",
+            description:
+              "Unauthorized (e.g., token missing, invalid, or user not found)",
             content: { "application/json": { schema: ErrorResponseSchema } },
           },
           "500": {
@@ -237,7 +247,8 @@ const document = createDocument({
     "/authors": {
       get: {
         tags: ["Authors"],
-        summary: "Get all authors (paginated)",
+        summary: "Get all authors created by the current user (paginated)",
+        security: [{ bearerAuth: [] }],
         requestParams: {
           query: z.object({
             page: PageQueryParameter,
@@ -248,7 +259,7 @@ const document = createDocument({
         },
         responses: {
           "200": {
-            description: "A list of authors.",
+            description: "A list of authors created by the current user.",
             content: {
               "application/json": {
                 schema: z.object({
@@ -260,7 +271,11 @@ const document = createDocument({
             },
           },
           "400": {
-            description: "Bad Request",
+            description: "Bad Request (e.g., validation error on query params)",
+            content: { "application/json": { schema: ErrorResponseSchema } },
+          },
+          "401": {
+            description: "Unauthorized",
             content: { "application/json": { schema: ErrorResponseSchema } },
           },
           "500": {
@@ -271,7 +286,7 @@ const document = createDocument({
       } satisfies ZodOpenApiOperationObject,
       post: {
         tags: ["Authors"],
-        summary: "Create a new author",
+        summary: "Create a new author (owned by the current user)",
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -297,7 +312,7 @@ const document = createDocument({
             },
           },
           "400": {
-            description: "Bad Request",
+            description: "Bad Request (e.g., validation error)",
             content: { "application/json": { schema: ErrorResponseSchema } },
           },
           "401": {
@@ -314,11 +329,10 @@ const document = createDocument({
     "/authors/{id}": {
       get: {
         tags: ["Authors"],
-        summary: "Get a specific author by ID",
+        summary: "Get a specific author by ID (must be created by the user)",
+        security: [{ bearerAuth: [] }],
         requestParams: {
-          path: z.object({
-            id: IdPathParameter,
-          }),
+          path: z.object({ id: IdPathParameter }),
         },
         responses: {
           "200": {
@@ -336,6 +350,14 @@ const document = createDocument({
             description: "Bad Request (invalid ID format)",
             content: { "application/json": { schema: ErrorResponseSchema } },
           },
+          "401": {
+            description: "Unauthorized",
+            content: { "application/json": { schema: ErrorResponseSchema } },
+          },
+          "403": {
+            description: "Forbidden (user does not own this author)",
+            content: { "application/json": { schema: ErrorResponseSchema } },
+          },
           "404": {
             description: "Author not found",
             content: { "application/json": { schema: ErrorResponseSchema } },
@@ -348,12 +370,10 @@ const document = createDocument({
       } satisfies ZodOpenApiOperationObject,
       patch: {
         tags: ["Authors"],
-        summary: "Update an existing author",
+        summary: "Update an existing author (must be created by the user)",
         security: [{ bearerAuth: [] }],
         requestParams: {
-          path: z.object({
-            id: IdPathParameter,
-          }),
+          path: z.object({ id: IdPathParameter }),
         },
         requestBody: {
           required: true,
@@ -379,7 +399,7 @@ const document = createDocument({
             },
           },
           "400": {
-            description: "Bad Request",
+            description: "Bad Request (e.g., validation error, no update data)",
             content: { "application/json": { schema: ErrorResponseSchema } },
           },
           "401": {
@@ -387,7 +407,7 @@ const document = createDocument({
             content: { "application/json": { schema: ErrorResponseSchema } },
           },
           "403": {
-            description: "Forbidden",
+            description: "Forbidden (user does not own this author)",
             content: { "application/json": { schema: ErrorResponseSchema } },
           },
           "404": {
@@ -402,12 +422,10 @@ const document = createDocument({
       } satisfies ZodOpenApiOperationObject,
       delete: {
         tags: ["Authors"],
-        summary: "Delete an author by ID",
+        summary: "Delete an author by ID (must be created by the user)",
         security: [{ bearerAuth: [] }],
         requestParams: {
-          path: z.object({
-            id: IdPathParameter,
-          }),
+          path: z.object({ id: IdPathParameter }),
         },
         responses: {
           "200": {
@@ -429,11 +447,164 @@ const document = createDocument({
             content: { "application/json": { schema: ErrorResponseSchema } },
           },
           "403": {
-            description: "Forbidden",
+            description: "Forbidden (user does not own this author)",
             content: { "application/json": { schema: ErrorResponseSchema } },
           },
           "404": {
             description: "Author not found",
+            content: { "application/json": { schema: ErrorResponseSchema } },
+          },
+          "409": {
+            description: "Conflict (e.g., author has associated books)",
+            content: { "application/json": { schema: ErrorResponseSchema } },
+          },
+          "500": {
+            description: "Internal Server Error",
+            content: { "application/json": { schema: ErrorResponseSchema } },
+          },
+        },
+      } satisfies ZodOpenApiOperationObject,
+    },
+    "/authors/{id}/favorite": {
+      post: {
+        tags: ["Favorites", "Authors"],
+        summary:
+          "Add an author to the current user's favorites (author must be created by the user)",
+        security: [{ bearerAuth: [] }],
+        requestParams: {
+          path: z.object({ id: IdPathParameter }),
+        },
+        responses: {
+          "200": {
+            description: "Author added to favorites successfully.",
+            content: {
+              "application/json": {
+                schema: z.object({
+                  status: z.string().openapi({ example: "success" }),
+                  message: z.string().openapi({
+                    example: "Author added to favorites successfully.",
+                  }),
+                }),
+              },
+            },
+          },
+          "400": {
+            description:
+              "Bad Request (e.g., author already in favorites, invalid ID)",
+            content: { "application/json": { schema: ErrorResponseSchema } },
+          },
+          "401": {
+            description: "Unauthorized",
+            content: { "application/json": { schema: ErrorResponseSchema } },
+          },
+          "403": {
+            description:
+              "Forbidden (user does not own the author to favorite it)",
+            content: { "application/json": { schema: ErrorResponseSchema } },
+          },
+          "404": {
+            description: "Author or User not found",
+            content: { "application/json": { schema: ErrorResponseSchema } },
+          },
+          "500": {
+            description: "Internal Server Error",
+            content: { "application/json": { schema: ErrorResponseSchema } },
+          },
+        },
+      } satisfies ZodOpenApiOperationObject,
+      delete: {
+        tags: ["Favorites", "Authors"],
+        summary:
+          "Remove an author from the current user's favorites (author must be created by the user)",
+        security: [{ bearerAuth: [] }],
+        requestParams: {
+          path: z.object({ id: IdPathParameter }),
+        },
+        responses: {
+          "200": {
+            description: "Author removed from favorites successfully.",
+            content: {
+              "application/json": {
+                schema: z.object({
+                  status: z.string().openapi({ example: "success" }),
+                  message: z.string().openapi({
+                    example: "Author removed from favorites successfully.",
+                  }),
+                }),
+              },
+            },
+          },
+          "400": {
+            description:
+              "Bad Request (e.g., author not in favorites, invalid ID)",
+            content: { "application/json": { schema: ErrorResponseSchema } },
+          },
+          "401": {
+            description: "Unauthorized",
+            content: { "application/json": { schema: ErrorResponseSchema } },
+          },
+          "403": {
+            description:
+              "Forbidden (user does not own the author to unfavorite it)",
+            content: { "application/json": { schema: ErrorResponseSchema } },
+          },
+          "404": {
+            description: "Author or User not found",
+            content: { "application/json": { schema: ErrorResponseSchema } },
+          },
+          "500": {
+            description: "Internal Server Error",
+            content: { "application/json": { schema: ErrorResponseSchema } },
+          },
+        },
+      } satisfies ZodOpenApiOperationObject,
+    },
+    "/favorites/authors": {
+      get: {
+        tags: ["Favorites"],
+        summary:
+          "Get the current user's favorite authors (paginated, only authors created by the user)",
+        description:
+          "Retrieves a paginated list of authors that the authenticated user has marked as favorite. Note: Only authors originally created by this user can be favorited and will appear in this list. The 'sortBy' and 'search' query parameters are accepted by validation but currently not implemented for filtering/sorting this specific list by the backend service.",
+        security: [{ bearerAuth: [] }],
+        requestParams: {
+          query: z.object({
+            page: PageQueryParameter,
+            limit: LimitQueryParameter,
+            sortBy: SortByQueryParameter,
+            search: SearchQueryParameter,
+          }),
+        },
+        responses: {
+          "200": {
+            description: "A list of the current user's favorite authors.",
+            content: {
+              "application/json": {
+                schema: z.object({
+                  status: z.string().openapi({ example: "success" }),
+                  data: z.array(
+                    AuthorOutputSchema.extend({
+                      isFavorite: z.literal(true).openapi({
+                        description: "Always true for authors in this list.",
+                        example: true,
+                      }),
+                    })
+                  ),
+                  meta: PaginationMetaSchema,
+                }),
+              },
+            },
+          },
+          "400": {
+            description: "Bad Request (e.g., validation error on query params)",
+            content: { "application/json": { schema: ErrorResponseSchema } },
+          },
+          "401": {
+            description: "Unauthorized",
+            content: { "application/json": { schema: ErrorResponseSchema } },
+          },
+          "404": {
+            description: "User not found (should not happen if token is valid)",
             content: { "application/json": { schema: ErrorResponseSchema } },
           },
           "500": {
