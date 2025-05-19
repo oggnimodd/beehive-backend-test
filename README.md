@@ -37,17 +37,17 @@ The API provides the following features:
     *   Allows users to manage authors *they have created*.
     *   `POST /`: Create a new author.
     *   `GET /`: Retrieve a paginated list of authors created by the authenticated user. Supports pagination, search, and sorting.
-    *   `GET /:id`: Get details for a specific author (must be created by the user).
-    *   `PATCH /:id`: Update a specific author (must be created by the user).
-    *   `DELETE /:id`: Delete a specific author (must be created by the user). Fails if the author is associated with books.
+    *   `GET /:id`: Get details for a specific author.
+    *   `PATCH /:id`: Update a specific author.
+    *   `DELETE /:id`: Delete a specific author. Fails if the author is associated with books.
 *   **Book Management (`/api/v1/books`)**
     *   Allows users to manage books *they have created*.
     *   Books can be associated with one or more authors.
     *   `POST /`: Create a new book (requires specifying author IDs).
     *   `GET /`: Retrieve a paginated list of books created by the authenticated user. Supports pagination, search, sorting, and filtering by author ID.
-    *   `GET /:id`: Get details for a specific book (must be created by the user).
-    *   `PATCH /:id`: Update a specific book (must be created by the user).
-    *   `DELETE /:id`: Delete a specific book (must be created by the user).
+    *   `GET /:id`: Get details for a specific book.
+    *   `PATCH /:id`: Update a specific book.
+    *   `DELETE /:id`: Delete a specific book.
 *   **Favorites (`/api/v1/favorites`)**
     *   Users can mark authors and books *they have created* as favorites.
     *   `POST /authors/:id/favorite`: Add an owned author to favorites.
