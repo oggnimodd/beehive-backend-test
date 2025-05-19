@@ -1,6 +1,4 @@
 import { randomUUID } from "node:crypto";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { config } from "@/config";
 import { prisma } from "@/db/client";
 import { errorHandler } from "@/middlewares/error.middleware";
@@ -12,66 +10,52 @@ import express from "express";
 import type { NextFunction, Request, Response } from "express";
 import helmet from "helmet";
 import { StatusCodes } from "http-status-codes";
-import pino from "pino";
-import pinoHttp from "pino-http";
 
 import swaggerOutput from "./swagger_output.json";
 
 const app = express();
 
+const isDevelopment = config.nodeEnv === "development";
+const isNetlifyDev =
+  process.env.NETLIFY_DEV === "true" || process.env.NETLIFY_LOCAL === "true";
+
+const connectSources = ["'self'", "https://cdn.jsdelivr.net"];
+if (isNetlifyDev) {
+  const netlifyDevApiOrigin = `http://localhost:${config.port}`;
+  connectSources.push(netlifyDevApiOrigin);
+}
+
 app.get("/favicon.ico", (_req, res) => {
   res.sendStatus(StatusCodes.NO_CONTENT);
 });
 
-app.use(
-  pinoHttp({
-    logger: appLogger,
-    genReqId: (req, res) => {
-      const existingId =
-        req.id ??
-        req.headers["x-request-id"] ??
-        req.headers["x-correlation-id"];
-      if (existingId) return existingId as string;
-      const id = randomUUID();
-      res.setHeader("X-Request-Id", id);
-      return id;
-    },
+app.use((req: Request, res: Response, next: NextFunction) => {
+  const reqIdHeader =
+    req.headers["x-request-id"] || req.headers["x-correlation-id"];
+  const reqId =
+    (Array.isArray(reqIdHeader) ? reqIdHeader[0] : reqIdHeader) || randomUUID();
+  (req as any).id = reqId;
+  res.setHeader("X-Request-Id", reqId);
 
-    serializers: {
-      req: (req) => ({
-        id: req.id,
-        method: req.method,
-        url: req.url,
-        remoteAddress: req.socket?.remoteAddress,
-      }),
-      res: (res) => ({
-        statusCode: res.statusCode,
-      }),
-      err: pino.stdSerializers.err,
-    },
+  const start = Date.now();
 
-    customLogLevel: (req, res, err) => {
-      if (err || res.statusCode >= 500) return "error";
-      if (res.statusCode >= 400) return "warn";
-      if (res.statusCode >= 300 && res.statusCode < 400) return "silent";
+  appLogger.debug(`${reqId} --> ${req.method} ${req.originalUrl}`);
 
-      if (req.originalUrl === "/health" && res.statusCode === 200) {
-        return "debug";
-      }
-      return "info";
-    },
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    const logMessage = `${reqId} <-- ${req.method} ${req.originalUrl} ${res.statusCode} (${duration}ms)`;
 
-    customSuccessMessage: (req, res) => {
-      if (req.originalUrl === "/health" && res.statusCode === 200) {
-        return `Health check success: ${req.method} ${req.originalUrl} -> ${res.statusCode}`;
-      }
-      return `${req.method} ${req.originalUrl} -> ${res.statusCode}`;
-    },
-    customErrorMessage: (req, res, err) => {
-      return `Client/Server Error: ${req.method} ${req.originalUrl} -> ${res.statusCode} - ${err.message}`;
-    },
-  })
-);
+    if (res.statusCode >= 500) {
+      appLogger.error(logMessage);
+    } else if (res.statusCode >= 400) {
+      appLogger.warn(logMessage);
+    } else {
+      appLogger.debug(logMessage);
+    }
+  });
+
+  next();
+});
 
 app.use(cors());
 
@@ -83,17 +67,17 @@ app.use(
         defaultSrc: ["'self'"],
         scriptSrc: [
           "'self'",
-          "'unsafe-inline'",
-          "'unsafe-eval'",
           "https://cdn.jsdelivr.net",
-        ],
+          isDevelopment || isNetlifyDev ? "'unsafe-inline'" : "",
+          isDevelopment || isNetlifyDev ? "'unsafe-eval'" : "",
+        ].filter(Boolean),
         styleSrc: [
           "'self'",
-          "'unsafe-inline'",
           "https://cdn.jsdelivr.net",
           "https://fonts.scalar.com",
           "https://fonts.googleapis.com",
-        ],
+          isDevelopment || isNetlifyDev ? "'unsafe-inline'" : "",
+        ].filter(Boolean),
         fontSrc: [
           "'self'",
           "https://fonts.scalar.com",
@@ -101,17 +85,39 @@ app.use(
           "data:",
         ],
         imgSrc: ["'self'", "data:", "https://cdn.jsdelivr.net"],
-        connectSrc: ["'self'", "https://cdn.jsdelivr.net"],
+        connectSrc: connectSources,
         workerSrc: ["'self'", "blob:"],
       },
     },
   })
 );
 
+// Fix netlify body parsing issue
+if (
+  process.env.NETLIFY_DEV === "true" ||
+  process.env.NETLIFY_LOCAL === "true"
+) {
+  app.use((req, _res, next) => {
+    if (
+      req.headers["content-type"] === "application/json" &&
+      Buffer.isBuffer(req.body)
+    ) {
+      try {
+        req.body = JSON.parse(req.body.toString("utf8"));
+      } catch (e) {
+        console.error("Error parsing buffer body in Netlify dev", e);
+      }
+    }
+    next();
+  });
+}
+
 app.use(express.json({ limit: "25kb" }));
 app.use(express.urlencoded({ extended: true, limit: "25kb" }));
 
-app.use("/swagger-output", (_req, res) => {
+app.get("/swagger-output", (req: Request, res: Response) => {
+  appLogger.debug("Serving swagger_output.json", { reqId: (req as any).id });
+  res.setHeader("Content-Type", "application/json");
   res.send(swaggerOutput);
 });
 
@@ -122,53 +128,61 @@ app.use(
     url: "/swagger-output",
     layout: "modern",
     showSidebar: true,
-    defaultHttpClient: {
-      targetKey: "js",
-      clientKey: "fetch",
-    },
-    authentication: {
-      preferredSecurityScheme: "bearerAuth",
-    },
+    defaultHttpClient: { targetKey: "js", clientKey: "fetch" },
+    authentication: { preferredSecurityScheme: "bearerAuth" },
     metaData: {
-      title: "Beehive Backend Test",
-      description: "Beehive Backend Test",
+      title: "Beehive Backend Test API",
+      description: "API documentation for the Beehive Backend Test.",
     },
   })
 );
 
-app.use(mainRouter);
-
-app.get("/health", (_req: Request, res: Response) => {
+app.get("/health", (req: Request, res: Response) => {
+  appLogger.info("HIT: Root /health endpoint", { reqId: (req as any).id });
   res.status(StatusCodes.OK).json({
     status: "UP",
+    path: "/health",
     timestamp: new Date().toISOString(),
   });
 });
 
+app.use(mainRouter);
+
 app.all("/{*splat}", (req: Request, res: Response) => {
-  const requestId = (req as any).id;
-
-  req.log.warn(
-    {
-      originalUrl: req.originalUrl,
-      method: req.method,
-      splatValue: req.params.splat,
-    },
-    "Resource not found"
-  );
-
+  if (res.headersSent) {
+    appLogger.warn(
+      "Headers already sent, cannot send 404 for unhandled route.",
+      {
+        reqId: (req as any).id,
+        originalUrl: req.originalUrl,
+      }
+    );
+    return;
+  }
+  const reqId = (req as any).id || randomUUID();
+  appLogger.warn(`Resource not found: ${req.method} ${req.originalUrl}`, {
+    reqId,
+    originalUrl: req.originalUrl,
+    path: req.path,
+    method: req.method,
+  });
   res.status(StatusCodes.NOT_FOUND).json({
     status: "fail",
     message: `Sorry, the resource '${req.originalUrl}' you are looking for does not exist on this server.`,
-    reqId: requestId,
+    reqId: reqId,
   });
 });
 
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+  const reqId = (req as any).id || randomUUID();
+  appLogger.error("Global error handler caught an error", err, {
+    reqId,
+    path: req.path,
+  });
   errorHandler(err, req, res, next);
 });
 
-const startServer = async () => {
+export const startServer = async () => {
   try {
     appLogger.info("Attempting to connect to the database...");
     await prisma.$connect();
@@ -181,60 +195,33 @@ const startServer = async () => {
     });
 
     const shutdown = async (signal: string) => {
-      appLogger.info(
-        `\n${signal} signal received. Initiating graceful shutdown...`
-      );
+      appLogger.info(`\n${signal} signal received. Graceful shutdown...`);
       server.close(async () => {
-        appLogger.info("HTTP server has been closed.");
+        appLogger.info("HTTP server closed.");
         await prisma.$disconnect();
-        appLogger.info("Database connection has been closed.");
-        appLogger.info(
-          "Graceful shutdown complete. Application exiting. Goodbye! 👋"
-        );
+        appLogger.info("Database connection closed.");
+        appLogger.info("Shutdown complete. Goodbye! 👋");
         process.exit(0);
       });
-
       setTimeout(() => {
-        appLogger.warn(
-          "Graceful shutdown period timed out. Forcing application exit..."
-        );
+        appLogger.warn("Shutdown timed out. Forcing exit...");
         process.exit(1);
       }, 10000);
     };
-
     process.on("SIGINT", () => shutdown("SIGINT"));
     process.on("SIGTERM", () => shutdown("SIGTERM"));
-    process.on("SIGQUIT", () => shutdown("SIGQUIT"));
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "An unknown error occurred";
-    appLogger.fatal(
-      { err: error },
-      `💥 Critical error during server startup: ${errorMessage}`
-    );
-
-    await prisma.$disconnect().catch((disconnectErr: unknown) => {
-      const disconnMsg =
-        disconnectErr instanceof Error
-          ? disconnectErr.message
-          : "Unknown disconnect error";
+    appLogger.fatal("💥 Server startup failed", error);
+    try {
+      await prisma.$disconnect();
+    } catch (disconnectErr) {
       appLogger.error(
-        { err: disconnectErr },
-        `Error during Prisma disconnect on startup failure: ${disconnMsg}`
+        "Error during Prisma disconnect on startup failure",
+        disconnectErr
       );
-    });
+    }
     process.exit(1);
   }
 };
-
-const currentScriptPath = fileURLToPath(import.meta.url);
-const mainScriptPath = process.argv[1];
-
-if (
-  mainScriptPath &&
-  path.resolve(currentScriptPath) === path.resolve(mainScriptPath)
-) {
-  startServer();
-}
 
 export default app;

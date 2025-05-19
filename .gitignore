@@ -36,3 +36,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Swagger output
 swagger_output.json
+
+# Local Netlify folder
+.netlify

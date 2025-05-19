@@ -2,7 +2,7 @@ import "zod-openapi/extend";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
-import { type ZodOpenApiObject, createDocument } from "zod-openapi";
+import { createDocument } from "zod-openapi";
 
 import { config } from "@/config";
 
@@ -13,6 +13,21 @@ import {
   UserRegistrationInputSchema,
 } from "@/dto/auth.dto";
 import { ErrorResponseSchema } from "@/dto/shared.dto";
+
+let apiBaseUrl = "";
+let serverDescription = "API Server";
+
+if (
+  process.env.NETLIFY_DEV === "true" ||
+  process.env.NETLIFY_LOCAL === "true"
+) {
+  const netlifyDevPort = process.env.PORT || 8888;
+  apiBaseUrl = `http://localhost:${netlifyDevPort}`;
+  serverDescription = "Netlify Dev Server";
+} else if (config.nodeEnv === "development" && !process.env.NETLIFY) {
+  apiBaseUrl = `http://localhost:${config.port}`;
+  serverDescription = "Local Development Server (Direct)";
+}
 
 const documentBase = {
   info: {
@@ -26,8 +41,8 @@ const documentBase = {
   },
   servers: [
     {
-      url: `http://localhost:${config.port}/api/v1`,
-      description: "Development Server (v1)",
+      url: `${apiBaseUrl}/api/v1`,
+      description: serverDescription,
     },
   ],
   components: {
@@ -169,6 +184,7 @@ const document = createDocument({
     },
   },
 });
+
 const outputFile = path.resolve(process.cwd(), "./src/swagger_output.json");
 
 async function generateAndWriteSwaggerFile() {
@@ -176,6 +192,9 @@ async function generateAndWriteSwaggerFile() {
     await writeFile(outputFile, JSON.stringify(document, null, 2), "utf-8");
     console.log(
       `✅ OpenAPI 3.0 specification generated successfully: ${outputFile}`
+    );
+    console.log(
+      `   Server URL configured in spec: ${document.servers?.[0]?.url}`
     );
     console.log(
       "Run your main application and navigate to /reference (or your configured Scalar path) to view the API docs."

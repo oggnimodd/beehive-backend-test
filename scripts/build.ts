@@ -39,9 +39,9 @@ async function build() {
   try {
     console.log("📦 Bundling application with esbuild...");
     await esbuild.build({
-      entryPoints: [path.resolve(projectRoot, "src/main.ts")],
+      entryPoints: [path.resolve(projectRoot, "index.ts")],
       bundle: true,
-      outfile: path.join(distDir, "main.js"),
+      outfile: path.join(distDir, "index.js"),
       platform: "node",
       format: "esm",
       target: "esnext",
