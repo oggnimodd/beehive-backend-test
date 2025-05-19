@@ -1,7 +1,7 @@
-import chalk from "chalk";
-import log from "loglevel";
 import util from "node:util";
 import { config } from "@/config";
+import chalk from "chalk";
+import log from "loglevel";
 
 type LevelName = "trace" | "debug" | "info" | "warn" | "error";
 

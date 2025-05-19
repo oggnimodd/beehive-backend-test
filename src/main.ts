@@ -74,20 +74,7 @@ app.use(
           "'unsafe-inline'",
           "'unsafe-eval'",
         ],
-        scriptSrcElem: [
-          "'self'",
-          "https://cdn.jsdelivr.net",
-          "'unsafe-inline'",
-          "'unsafe-eval'",
-        ],
         styleSrc: [
-          "'self'",
-          "https://cdn.jsdelivr.net",
-          "https://fonts.scalar.com",
-          "https://fonts.googleapis.com",
-          "'unsafe-inline'",
-        ],
-        styleSrcElem: [
           "'self'",
           "https://cdn.jsdelivr.net",
           "https://fonts.scalar.com",
@@ -103,6 +90,7 @@ app.use(
         imgSrc: ["'self'", "data:", "https://cdn.jsdelivr.net"],
         connectSrc: connectSources,
         workerSrc: ["'self'", "blob:"],
+        scriptSrcAttr: ["'unsafe-inline'"],
       },
     },
   })
