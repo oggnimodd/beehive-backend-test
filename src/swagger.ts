@@ -247,7 +247,7 @@ const document = createDocument({
     "/authors": {
       get: {
         tags: ["Authors"],
-        summary: "Get all authors created by the current user (paginated)",
+        summary: "Get all authors created by the current user",
         security: [{ bearerAuth: [] }],
         requestParams: {
           query: z.object({
@@ -329,7 +329,7 @@ const document = createDocument({
     "/authors/{id}": {
       get: {
         tags: ["Authors"],
-        summary: "Get a specific author by ID (must be created by the user)",
+        summary: "Get a specific author by ID",
         security: [{ bearerAuth: [] }],
         requestParams: {
           path: z.object({ id: IdPathParameter }),
@@ -370,7 +370,7 @@ const document = createDocument({
       } satisfies ZodOpenApiOperationObject,
       patch: {
         tags: ["Authors"],
-        summary: "Update an existing author (must be created by the user)",
+        summary: "Update an existing author",
         security: [{ bearerAuth: [] }],
         requestParams: {
           path: z.object({ id: IdPathParameter }),
@@ -422,7 +422,7 @@ const document = createDocument({
       } satisfies ZodOpenApiOperationObject,
       delete: {
         tags: ["Authors"],
-        summary: "Delete an author by ID (must be created by the user)",
+        summary: "Delete an author by ID",
         security: [{ bearerAuth: [] }],
         requestParams: {
           path: z.object({ id: IdPathParameter }),
@@ -468,8 +468,7 @@ const document = createDocument({
     "/authors/{id}/favorite": {
       post: {
         tags: ["Favorites", "Authors"],
-        summary:
-          "Add an author to the current user's favorites (author must be created by the user)",
+        summary: "Add an author to the current user's favorites",
         security: [{ bearerAuth: [] }],
         requestParams: {
           path: z.object({ id: IdPathParameter }),
@@ -514,8 +513,7 @@ const document = createDocument({
       } satisfies ZodOpenApiOperationObject,
       delete: {
         tags: ["Favorites", "Authors"],
-        summary:
-          "Remove an author from the current user's favorites (author must be created by the user)",
+        summary: "Remove an author from the current user's favorites",
         security: [{ bearerAuth: [] }],
         requestParams: {
           path: z.object({ id: IdPathParameter }),
