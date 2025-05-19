@@ -22,17 +22,14 @@ class AuthorService {
     return AuthorDao.createAuthor(authorData, userId);
   }
 
-  async getAuthorById(
-    authorId: string,
-    requestingUserId?: string
-  ): Promise<AuthorOutput> {
+  async getAuthorById(authorId: string, requestingUserId?: string) {
     const author = await AuthorDao.findAuthorById(authorId, requestingUserId);
 
     if (!author) {
       throw new NotFoundError(ErrorMessages.AUTHOR_NOT_FOUND);
     }
 
-    return author as AuthorOutput;
+    return author;
   }
 
   async getAllAuthors(

@@ -38,10 +38,10 @@ class AuthorController {
       const requestingUserId = req.user!.id;
       const authorIdFromParams = req.params.id;
 
-      const author = (await AuthorService.getAuthorById(
+      const author = await AuthorService.getAuthorById(
         authorIdFromParams,
         requestingUserId
-      )) as AuthorOutput;
+      );
 
       if (!author.createdById || author.createdById !== requestingUserId) {
         throw new ForbiddenError(ErrorMessages.UNAUTHORIZED_ACTION);
