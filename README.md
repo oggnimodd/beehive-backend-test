@@ -23,7 +23,7 @@ A deployed version of this API is available. You can explore the interactive API
 
 ➡️ **[https://beehive-backend-test.netlify.app/reference](https://beehive-backend-test.netlify.app/reference)**
 
-This documentation allows you to see available endpoints, request/response schemas, and directly test API calls (requires authentication via the login endpoint).
+This documentation allows you to see available endpoints, request/response schemas, and directly test API calls.
 
 ## Functionalities and Endpoints
 
@@ -62,7 +62,6 @@ The project follows a layered architecture:
 ```
 .
 ├── biome.json          # Biome linter/formatter config
-├── bun.lock            # Bun lockfile
 ├── index.ts            # Server entry point
 ├── netlify/            # Netlify serverless function handler
 │   └── functions/
@@ -71,7 +70,6 @@ The project follows a layered architecture:
 ├── package.json        # Dependencies and scripts
 ├── prisma/             # Prisma schema and migrations
 │   └── schema.prisma
-├── README.md           # This file
 ├── scripts/            # Custom build scripts
 │   └── build.ts        # Esbuild script for production build
 ├── src/
