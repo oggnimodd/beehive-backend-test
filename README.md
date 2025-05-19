@@ -34,14 +34,14 @@ The API provides the following features:
     *   `POST /login`: Authenticate a user and receive a JWT.
     *   `GET /me`: Get the profile of the authenticated user.
 *   **Author Management (`/api/v1/authors`)**
-    *   Allows users to manage authors *they have created*.
+    *   Manage authors.
     *   `POST /`: Create a new author.
     *   `GET /`: Retrieve a paginated list of authors created by the authenticated user. Supports pagination, search, and sorting.
     *   `GET /:id`: Get details for a specific author.
     *   `PATCH /:id`: Update a specific author.
     *   `DELETE /:id`: Delete a specific author. Fails if the author is associated with books.
 *   **Book Management (`/api/v1/books`)**
-    *   Allows users to manage books *they have created*.
+    *   Manage books.
     *   Books can be associated with one or more authors.
     *   `POST /`: Create a new book (requires specifying author IDs).
     *   `GET /`: Retrieve a paginated list of books created by the authenticated user. Supports pagination, search, sorting, and filtering by author ID.
@@ -49,11 +49,11 @@ The API provides the following features:
     *   `PATCH /:id`: Update a specific book.
     *   `DELETE /:id`: Delete a specific book.
 *   **Favorites (`/api/v1/favorites`)**
-    *   Users can mark authors and books *they have created* as favorites.
-    *   `POST /authors/:id/favorite`: Add an owned author to favorites.
-    *   `DELETE /authors/:id/favorite`: Remove an owned author from favorites.
-    *   `POST /books/:id/favorite`: Add an owned book to favorites.
-    *   `DELETE /books/:id/favorite`: Remove an owned book from favorites.
+    *   Users can mark authors and books as favorites.
+    *   `POST /authors/:id/favorite`: Add an author to favorites.
+    *   `DELETE /authors/:id/favorite`: Remove an author from favorites.
+    *   `POST /books/:id/favorite`: Add a book to favorites.
+    *   `DELETE /books/:id/favorite`: Remove a book from favorites.
 
 ## Folder Structure
 
