@@ -82,7 +82,7 @@ const documentBase = {
     version: "v1.0.0",
     title: "Beehive Backend API",
     description:
-      "API for managing books and authors, with JWT authentication. Built with Bun, Express, Prisma, and MongoDB. Note: Author management and favoriting are scoped to authors created by the authenticated user.",
+      "API for managing books and authors, with JWT authentication. Built with Bun, Express, Prisma, and MongoDB.",
     contact: {
       name: "Orenji The Developer",
     },
