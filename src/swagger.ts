@@ -24,9 +24,19 @@ if (
   const netlifyDevPort = process.env.PORT || 8888;
   apiBaseUrl = `http://localhost:${netlifyDevPort}`;
   serverDescription = "Netlify Dev Server";
-} else if (config.nodeEnv === "development" && !process.env.NETLIFY) {
+} else if (process.env.API_BASE_URL) {
+  apiBaseUrl = process.env.API_BASE_URL;
+  serverDescription = "Production Server";
+} else if (config.nodeEnv === "development") {
   apiBaseUrl = `http://localhost:${config.port}`;
   serverDescription = "Local Development Server (Direct)";
+} else {
+  console.warn(
+    "WARN: API_BASE_URL or specific development configuration not found for Swagger. " +
+      "API calls from docs might not be correctly targeted. Defaulting to relative /api/v1."
+  );
+  apiBaseUrl = "";
+  serverDescription = "API Server (URL Undefined)";
 }
 
 const documentBase = {
@@ -41,7 +51,7 @@ const documentBase = {
   },
   servers: [
     {
-      url: `${apiBaseUrl}/api/v1`,
+      url: apiBaseUrl ? `${apiBaseUrl}/api/v1` : "/api/v1",
       description: serverDescription,
     },
   ],
@@ -193,9 +203,11 @@ async function generateAndWriteSwaggerFile() {
     console.log(
       `✅ OpenAPI 3.0 specification generated successfully: ${outputFile}`
     );
-    console.log(
-      `   Server URL configured in spec: ${document.servers?.[0]?.url}`
-    );
+    if (document.servers?.[0]) {
+      console.log(
+        `   Server URL configured in spec: ${document.servers[0].url}`
+      );
+    }
     console.log(
       "Run your main application and navigate to /reference (or your configured Scalar path) to view the API docs."
     );

@@ -15,14 +15,18 @@ import swaggerOutput from "./swagger_output.json";
 
 const app = express();
 
-const isDevelopment = config.nodeEnv === "development";
-const isNetlifyDev =
-  process.env.NETLIFY_DEV === "true" || process.env.NETLIFY_LOCAL === "true";
-
 const connectSources = ["'self'", "https://cdn.jsdelivr.net"];
-if (isNetlifyDev) {
-  const netlifyDevApiOrigin = `http://localhost:${config.port}`;
-  connectSources.push(netlifyDevApiOrigin);
+
+if (
+  process.env.NETLIFY_DEV === "true" ||
+  process.env.NETLIFY_LOCAL === "true"
+) {
+  const netlifyDevPort = process.env.PORT || 8888;
+  connectSources.push(`http://localhost:${netlifyDevPort}`);
+} else if (process.env.API_BASE_URL) {
+  connectSources.push(process.env.API_BASE_URL);
+} else if (config.nodeEnv === "development") {
+  connectSources.push(`http://localhost:${config.port}`);
 }
 
 app.get("/favicon.ico", (_req, res) => {
@@ -38,7 +42,6 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader("X-Request-Id", reqId);
 
   const start = Date.now();
-
   appLogger.debug(`${reqId} --> ${req.method} ${req.originalUrl}`);
 
   res.on("finish", () => {
@@ -68,16 +71,16 @@ app.use(
         scriptSrc: [
           "'self'",
           "https://cdn.jsdelivr.net",
-          isDevelopment || isNetlifyDev ? "'unsafe-inline'" : "",
-          isDevelopment || isNetlifyDev ? "'unsafe-eval'" : "",
-        ].filter(Boolean),
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+        ],
         styleSrc: [
           "'self'",
           "https://cdn.jsdelivr.net",
           "https://fonts.scalar.com",
           "https://fonts.googleapis.com",
-          isDevelopment || isNetlifyDev ? "'unsafe-inline'" : "",
-        ].filter(Boolean),
+          "'unsafe-inline'",
+        ],
         fontSrc: [
           "'self'",
           "https://fonts.scalar.com",
@@ -92,7 +95,6 @@ app.use(
   })
 );
 
-// Fix netlify body parsing issue
 if (
   process.env.NETLIFY_DEV === "true" ||
   process.env.NETLIFY_LOCAL === "true"
@@ -105,7 +107,7 @@ if (
       try {
         req.body = JSON.parse(req.body.toString("utf8"));
       } catch (e) {
-        console.error("Error parsing buffer body in Netlify dev", e);
+        console.error("Error parsing buffer body in Netlify dev/local", e);
       }
     }
     next();
