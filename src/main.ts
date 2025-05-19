@@ -120,7 +120,12 @@ if (
     ) {
       try {
         req.body = JSON.parse(req.body.toString("utf8"));
-      } catch (e) {}
+      } catch (e) {
+        appLogger.warn(
+          "Failed to manually parse JSON body in Netlify handler",
+          { reqId: (req as any).id, error: e }
+        );
+      }
     }
     next();
   });
@@ -128,6 +133,18 @@ if (
 
 app.use(express.json({ limit: "25kb" }));
 app.use(express.urlencoded({ extended: true, limit: "25kb" }));
+
+app.get("/", (req: Request, res: Response) => {
+  appLogger.info("HIT: Function root endpoint", { reqId: (req as any).id });
+  const apiBaseUrl = process.env.API_BASE_URL || "this API base URL";
+  res.status(StatusCodes.OK).json({
+    message: `API is active. To see the interactive API documentation, go to ${apiBaseUrl}/reference`,
+    status: "UP",
+    path: "/",
+    timestamp: new Date().toISOString(),
+    reqId: (req as any).id,
+  });
+});
 
 app.get("/swagger-output", (req: Request, res: Response) => {
   appLogger.debug("Serving swagger_output.json", { reqId: (req as any).id });
@@ -152,11 +169,12 @@ app.use(
 );
 
 app.get("/health", (req: Request, res: Response) => {
-  appLogger.info("HIT: Root /health endpoint", { reqId: (req as any).id });
+  appLogger.info("HIT: /health endpoint", { reqId: (req as any).id });
   res.status(StatusCodes.OK).json({
     status: "UP",
     path: "/health",
     timestamp: new Date().toISOString(),
+    reqId: (req as any).id,
   });
 });
 
@@ -180,9 +198,10 @@ app.all("/{*splat}", (req: Request, res: Response) => {
     path: req.path,
     method: req.method,
   });
+  const apiBaseUrl = process.env.API_BASE_URL || "the API base URL";
   res.status(StatusCodes.NOT_FOUND).json({
     status: "fail",
-    message: `Sorry, the resource '${req.originalUrl}' you are looking for does not exist on this server.`,
+    message: `Resource not found. The path '${req.originalUrl}' does not exist on this API. Check the documentation at ${apiBaseUrl}/reference.`,
     reqId: reqId,
   });
 });
