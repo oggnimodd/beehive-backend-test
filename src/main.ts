@@ -8,7 +8,7 @@ import { apiReference } from "@scalar/express-api-reference";
 import cors from "cors";
 import express from "express";
 import type { NextFunction, Request, Response } from "express";
-// import helmet from "helmet";
+import helmet from "helmet";
 import { StatusCodes } from "http-status-codes";
 
 import swaggerOutput from "./swagger_output.json";
@@ -62,39 +62,51 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 app.use(cors());
 
-// Todo: fix helmet for netlify dev/local
-// app.use(
-//   helmet({
-//     crossOriginEmbedderPolicy: false,
-//     contentSecurityPolicy: {
-//       directives: {
-//         defaultSrc: ["'self'"],
-//         scriptSrc: [
-//           "'self'",
-//           "https://cdn.jsdelivr.net",
-//           "'unsafe-inline'",
-//           "'unsafe-eval'",
-//         ],
-//         styleSrc: [
-//           "'self'",
-//           "https://cdn.jsdelivr.net",
-//           "https://fonts.scalar.com",
-//           "https://fonts.googleapis.com",
-//           "'unsafe-inline'",
-//         ],
-//         fontSrc: [
-//           "'self'",
-//           "https://fonts.scalar.com",
-//           "https://fonts.gstatic.com",
-//           "data:",
-//         ],
-//         imgSrc: ["'self'", "data:", "https://cdn.jsdelivr.net"],
-//         connectSrc: connectSources,
-//         workerSrc: ["'self'", "blob:"],
-//       },
-//     },
-//   })
-// );
+app.use(
+  helmet({
+    crossOriginEmbedderPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'",
+          "https://cdn.jsdelivr.net",
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+        ],
+        scriptSrcElem: [
+          "'self'",
+          "https://cdn.jsdelivr.net",
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+        ],
+        styleSrc: [
+          "'self'",
+          "https://cdn.jsdelivr.net",
+          "https://fonts.scalar.com",
+          "https://fonts.googleapis.com",
+          "'unsafe-inline'",
+        ],
+        styleSrcElem: [
+          "'self'",
+          "https://cdn.jsdelivr.net",
+          "https://fonts.scalar.com",
+          "https://fonts.googleapis.com",
+          "'unsafe-inline'",
+        ],
+        fontSrc: [
+          "'self'",
+          "https://fonts.scalar.com",
+          "https://fonts.gstatic.com",
+          "data:",
+        ],
+        imgSrc: ["'self'", "data:", "https://cdn.jsdelivr.net"],
+        connectSrc: connectSources,
+        workerSrc: ["'self'", "blob:"],
+      },
+    },
+  })
+);
 
 if (
   process.env.NETLIFY_DEV === "true" ||
