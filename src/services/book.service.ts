@@ -3,6 +3,7 @@ import {
   DEFAULT_PAGE_NUMBER,
   ErrorMessages,
 } from "@/constants";
+import AuthorDao from "@/dao/author.dao";
 import BookDao from "@/dao/book.dao";
 import type { BookOutput, CreateBookDto, UpdateBookDto } from "@/dto/book.dto";
 import type { PaginationQueryDto } from "@/dto/shared.dto";
@@ -11,7 +12,6 @@ import {
   ForbiddenError,
   NotFoundError,
 } from "@/errors/error-types";
-import AuthorDao from "@/dao/author.dao";
 
 class BookService {
   async createBook(bookData: CreateBookDto, userId: string) {

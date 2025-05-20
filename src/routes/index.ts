@@ -1,8 +1,8 @@
 import { Router } from "express";
 import authRoutes from "./auth.routes";
 import authorRoutes from "./author.routes";
-import favoriteRoutes from "./favorite.routes";
 import bookRoutes from "./book.routes";
+import favoriteRoutes from "./favorite.routes";
 
 const mainRouter = Router();
 const API_PREFIX = "/api/v1";

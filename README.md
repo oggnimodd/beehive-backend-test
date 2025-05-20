@@ -25,6 +25,10 @@ A deployed version of this API is available. You can explore the interactive API
 
 This documentation allows you to see available endpoints, request/response schemas, and directly test API calls.
 
+To see the OpenAPI specification of the API, you can visit the following URL:
+
+https://beehive-backend-test.netlify.app/swagger-output
+
 ## Functionalities and Endpoints
 
 The API provides the following features:
