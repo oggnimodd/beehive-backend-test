@@ -62,8 +62,7 @@ model BookAuthor {
   bookId     String   @db.ObjectId
   authorId   String   @db.ObjectId
   assignedAt DateTime @default(now())
-  book       Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
-  // When the author is deleted, the book is not deleted
+  book       Book     @relation(fields: [bookId], references: [id], onDelete: NoAction)
   author     Author   @relation(fields: [authorId], references: [id], onDelete: NoAction)
 
   @@unique([bookId, authorId])
