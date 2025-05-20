@@ -89,7 +89,7 @@ if (
 const documentBase = {
   info: {
     version: "v1.0.0",
-    title: "Beehive Backend API",
+    title: "Beehive Backend Test",
     description:
       "API for managing books and authors, with JWT authentication. Built with Bun, Express, Prisma, and MongoDB.",
     contact: {
